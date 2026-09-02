@@ -427,9 +427,11 @@ function invValorLiquido(r){
 function invEsc(s){return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
 function invGetMesAno(r){
   if(!r.data_aporte)return {mes:0,ano:0};
-  var s=String(r.data_aporte);
-  var m=s.match(/^(\d{4})-(\d{2})/);
-  if(m)return {mes:parseInt(m[2]),ano:parseInt(m[1])};
+  var s=String(r.data_aporte).trim();
+  var mIso=s.match(/^(\d{4})-(\d{2})/);
+  if(mIso)return {mes:parseInt(mIso[2]),ano:parseInt(mIso[1])};
+  var mBr=s.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})/);
+  if(mBr)return {mes:parseInt(mBr[2]),ano:parseInt(mBr[3])};
   return {mes:0,ano:0};
 }
 
