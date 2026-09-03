@@ -749,6 +749,14 @@ function initLogin(){
         sb.auth.signOut().then(function(){ window.location.replace('login.html'); });
         return;
       }
+      if(!perfilAtual.acessa_movimentacao){
+        document.body.innerHTML = '<div style="max-width:520px;margin:80px auto;text-align:center;font-family:sans-serif">'
+          + '<h2 style="color:#93372f;margin-bottom:12px">Acesso restrito</h2>'
+          + '<p style="color:#5b6b5c;margin-bottom:20px">Você não tem permissão para acessar a Movimentação.</p>'
+          + '<a href="painel.html" style="color:#073222;font-weight:600">&larr; Voltar ao Início</a>'
+          + '</div>';
+        return;
+      }
       var s=gSess();
       document.getElementById('app').style.display='block';
       loadData();movInitBotaoLancar(s);carregarCorSistema();

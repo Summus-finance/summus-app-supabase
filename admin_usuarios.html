@@ -117,6 +117,9 @@ tbody td{padding:9px 14px;border-bottom:1px solid var(--bd);color:var(--t1);vert
             <th>E-mail</th>
             <th>Admin</th>
             <th>Pode atualizar</th>
+            <th>Metas</th>
+            <th>Movim.</th>
+            <th>Concentr.</th>
             <th>Investidores</th>
             <th>Despesas</th>
             <th>Gestão Desp.</th>
@@ -161,6 +164,9 @@ tbody td{padding:9px 14px;border-bottom:1px solid var(--bd);color:var(--t1);vert
     <div class="mo-perms">
       <label class="mo-perm-item"><input type="checkbox" id="nu-admin"> Admin</label>
       <label class="mo-perm-item"><input type="checkbox" id="nu-pode-atualizar"> Pode atualizar</label>
+      <label class="mo-perm-item"><input type="checkbox" id="nu-metas"> Acompanhamento de Metas</label>
+      <label class="mo-perm-item"><input type="checkbox" id="nu-movimentacao"> Movimentação</label>
+      <label class="mo-perm-item"><input type="checkbox" id="nu-concentracao"> Concentração</label>
       <label class="mo-perm-item"><input type="checkbox" id="nu-investidores"> Acessa investidores</label>
       <label class="mo-perm-item"><input type="checkbox" id="nu-despesas"> Acessa despesas</label>
       <label class="mo-perm-item"><input type="checkbox" id="nu-gestao-despesas"> Gestão de Despesas</label>
@@ -194,6 +200,9 @@ tbody td{padding:9px 14px;border-bottom:1px solid var(--bd);color:var(--t1);vert
     <div class="mo-perms">
       <label class="mo-perm-item"><input type="checkbox" id="ed-admin"> Admin</label>
       <label class="mo-perm-item"><input type="checkbox" id="ed-pode-atualizar"> Pode atualizar</label>
+      <label class="mo-perm-item"><input type="checkbox" id="ed-metas"> Acompanhamento de Metas</label>
+      <label class="mo-perm-item"><input type="checkbox" id="ed-movimentacao"> Movimentação</label>
+      <label class="mo-perm-item"><input type="checkbox" id="ed-concentracao"> Concentração</label>
       <label class="mo-perm-item"><input type="checkbox" id="ed-investidores"> Acessa investidores</label>
       <label class="mo-perm-item"><input type="checkbox" id="ed-despesas"> Acessa despesas</label>
       <label class="mo-perm-item"><input type="checkbox" id="ed-gestao-despesas"> Gestão de Despesas</label>
@@ -267,6 +276,9 @@ function renderTabela(){
       '<td style="color:var(--t2)">'+(u.email||'—')+'</td>'+
       '<td>'+pill(u.admin)+'</td>'+
       '<td>'+pill(u.pode_atualizar)+'</td>'+
+      '<td>'+pill(u.acessa_metas)+'</td>'+
+      '<td>'+pill(u.acessa_movimentacao)+'</td>'+
+      '<td>'+pill(u.acessa_concentracao)+'</td>'+
       '<td>'+pill(u.acessa_investidores)+'</td>'+
       '<td>'+pill(u.acessa_despesas)+'</td>'+
       '<td>'+pill(u.acessa_gestao_despesas)+'</td>'+
@@ -305,6 +317,9 @@ function abrirModalEditar(id){
   document.getElementById('ed-nome').value = u.nome_usuario || '';
   document.getElementById('ed-admin').checked = !!u.admin;
   document.getElementById('ed-pode-atualizar').checked = !!u.pode_atualizar;
+  document.getElementById('ed-metas').checked = !!u.acessa_metas;
+  document.getElementById('ed-movimentacao').checked = !!u.acessa_movimentacao;
+  document.getElementById('ed-concentracao').checked = !!u.acessa_concentracao;
   document.getElementById('ed-investidores').checked = !!u.acessa_investidores;
   document.getElementById('ed-despesas').checked = !!u.acessa_despesas;
   document.getElementById('ed-gestao-despesas').checked = !!u.acessa_gestao_despesas;
@@ -325,6 +340,9 @@ function salvarEdicao(){
     nome_usuario: nome,
     admin: document.getElementById('ed-admin').checked,
     pode_atualizar: document.getElementById('ed-pode-atualizar').checked,
+    acessa_metas: document.getElementById('ed-metas').checked,
+    acessa_movimentacao: document.getElementById('ed-movimentacao').checked,
+    acessa_concentracao: document.getElementById('ed-concentracao').checked,
     acessa_investidores: document.getElementById('ed-investidores').checked,
     acessa_despesas: document.getElementById('ed-despesas').checked,
     acessa_gestao_despesas: document.getElementById('ed-gestao-despesas').checked,
@@ -356,6 +374,9 @@ function abrirModalNovoUsuario(){
   document.getElementById('nu-senha').value='';
   document.getElementById('nu-admin').checked=false;
   document.getElementById('nu-pode-atualizar').checked=false;
+  document.getElementById('nu-metas').checked=false;
+  document.getElementById('nu-movimentacao').checked=false;
+  document.getElementById('nu-concentracao').checked=false;
   document.getElementById('nu-investidores').checked=false;
   document.getElementById('nu-despesas').checked=false;
   document.getElementById('nu-gestao-despesas').checked=false;
@@ -386,6 +407,9 @@ function criarUsuario(){
     senha: senha,
     admin: document.getElementById('nu-admin').checked,
     pode_atualizar: document.getElementById('nu-pode-atualizar').checked,
+    acessa_metas: document.getElementById('nu-metas').checked,
+    acessa_movimentacao: document.getElementById('nu-movimentacao').checked,
+    acessa_concentracao: document.getElementById('nu-concentracao').checked,
     acessa_investidores: document.getElementById('nu-investidores').checked,
     acessa_despesas: document.getElementById('nu-despesas').checked,
     acessa_gestao_despesas: document.getElementById('nu-gestao-despesas').checked,
