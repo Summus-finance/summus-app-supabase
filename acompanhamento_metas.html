@@ -527,7 +527,8 @@ function mxrNestify(row){
       prorrogacoes: row.faturamento_prorrogacoes, redesconto: row.faturamento_redesconto,
       refinanciamento: row.faturamento_refinanciamento, multas: row.faturamento_multas,
       juros_atraso: row.faturamento_juros_atraso, descontos: row.faturamento_descontos,
-      iof: row.faturamento_iof
+      iof: row.faturamento_iof,
+      recuperacao_tarifas: row.fat_recuperacao_tarifas
     },
     taxa: { meta: row.taxa_meta, operacoes: row.taxa_operacoes, prorrogacoes: row.taxa_prorrogacoes, redesconto: row.taxa_redesconto },
     despesa: { meta: row.despesa_meta, realizado: row.despesa_realizado },
@@ -633,7 +634,7 @@ function somaCampo(d,campo){
 // Faturamento agora é meta + 3 categorias de realizado (operações, prorrogações, redesconto).
 // O "Faturamento" do card principal é a soma das 3 categorias.
 function somaFaturamento(d){
-  var meta=0, op=0, pr=0, rd=0, rf=0, mu=0, ja=0, de=0, io=0;
+  var meta=0, op=0, pr=0, rd=0, rf=0, mu=0, ja=0, de=0, io=0, rt=0;
   d.forEach(function(r){
     if(r.faturamento){
       meta+=n(r.faturamento.meta);
@@ -645,12 +646,13 @@ function somaFaturamento(d){
       ja+=n(r.faturamento.juros_atraso);
       de+=n(r.faturamento.descontos);
       io+=n(r.faturamento.iof);
+      rt+=n(r.faturamento.recuperacao_tarifas);
     }
   });
   return {
     meta:meta, operacoes:op, prorrogacoes:pr, redesconto:rd, refinanciamento:rf,
-    multas:mu, juros_atraso:ja, descontos:de, iof:io,
-    total:op+pr+rd+rf+mu+ja+io+de
+    multas:mu, juros_atraso:ja, descontos:de, iof:io, recuperacao_tarifas:rt,
+    total:op+pr+rd+rf+mu+ja+io+rt+de
   };
 }
 // Taxa ponderada: agora vem PRONTA da planilha (não calculamos mais fat/vol).
@@ -851,26 +853,39 @@ function itemMeta(lbl, real, meta, fmt, extraHtml, faltaAbaixo, compacto){
 // antes eram espaçadores invisíveis, mostra Multas/Juros de Atraso/Descontos —
 // cada um com um badge coloridinho e o valor embaixo. Não aumenta a altura do
 // card porque essas 3 linhas já estavam reservadas.
-function itemFaturamentoPrincipal(real, meta, fatRf, fatMu, fatJa, fatIof, fatDe){
+function itemFaturamentoPrincipal(real, meta, fatOp, fatPr, fatRd, fatRf, fatMu, fatJa, fatIof, fatRt, fatDe){
   var pctReal = meta>0?Math.round(real/meta*100):0;
   var pct=Math.min(Math.max(pctReal,0),100);
   var cls=badgeCls(pctReal);
   var falta=meta-real;
   var faltaTxt = meta>0 ? (falta>0?('Falta: '+fM(falta)):'✓ Meta atingida!') : '';
-  function badgeLinha(label, valor, bg, borda, cor){
-    return '<div style="display:flex;align-items:center;justify-content:space-between;margin-top:2px;height:13px">'+
-      '<span style="font-size:9px;font-weight:700;padding:0 8px;border-radius:20px;background:'+bg+';border:1px solid '+borda+';color:'+cor+';white-space:nowrap;line-height:12px;display:inline-block">'+label+'</span>'+
-      '<span style="font-size:12px;color:var(--t1);font-weight:600;line-height:13px">'+fM(valor)+'</span>'+
-    '</div>';
+  // Cada linha vira 2 células (rótulo + valor) de uma ÚNICA grade por
+  // coluna — assim a largura do rótulo é a mesma em todas as linhas
+  // (a da maior etiqueta), e os valores caem sempre na mesma borda à
+  // direita, alinhados de verdade, não "um do lado do outro" sozinhos.
+  function badgeCelulas(label, valor, bg, borda, cor){
+    return '<span style="font-size:8.5px;font-weight:700;padding:2px 7px;border-radius:20px;background:'+bg+';border:1px solid '+borda+';color:'+cor+';white-space:nowrap;line-height:11px;justify-self:start;align-self:center">'+label+'</span>'+
+      '<span style="font-size:11.5px;color:var(--t1);font-weight:600;white-space:nowrap;font-family:var(--num);justify-self:end;align-self:center">'+fM(valor)+'</span>';
   }
+  var celEsquerda =
+    badgeCelulas('DESÁGIO', fatOp, '#e4f3ea', '#a8d8bf', '#1d7a5c')+
+    badgeCelulas('PRORROGAÇÕES', fatPr, '#e0f2f1', '#80cbc4', '#00695c')+
+    badgeCelulas('REDESCONTO', fatRd, '#e8eaf6', '#9fa8da', '#303f9f')+
+    badgeCelulas('REFINANCIAMENTO', fatRf, '#e3f4fb', '#9ecfe6', '#1a6f8f')+
+    badgeCelulas('MULTAS', fatMu, '#f3eafe', '#c9a8ea', '#8e44ad');
+  var celDireita =
+    badgeCelulas('JUROS ATRASO', fatJa, '#fce8e8', '#e09090', '#a32d2d')+
+    badgeCelulas('IOF', fatIof, '#fdf3e3', '#e0c07a', '#8a6416')+
+    badgeCelulas('RECUPERAÇÃO TARIFAS', fatRt, '#e0f7fa', '#80deea', '#00838f')+
+    badgeCelulas('DESCONTOS', fatDe, '#eef2f5', '#c3ccd3', '#57697a');
+  var gradeCol = 'display:grid;grid-template-columns:auto 1fr;column-gap:8px;row-gap:6px;align-items:center';
   return '<div class="mi"><div class="mi-h"><span class="mi-l">Faturamento</span>'+(meta>0?'<span class="mi-badge '+cls+'">'+pctReal+'%'+(pctReal>=100?' ✓':'')+'</span>':'')+'</div>'+
     (meta>0?'<div class="bar-w"><div class="bar" style="width:'+pct+'%;background:'+barColor(cls)+'"></div></div>':'')+
     '<div class="mi-v"><span><span class="real">'+fM(real)+'</span>'+(meta>0?'<span class="sep">de</span>'+fM(meta):'')+'</span>'+(meta>0?'<span>'+faltaTxt+'</span>':'')+'</div>'+
-    badgeLinha('REFINANCIAMENTO', fatRf, '#e3f4fb', '#9ecfe6', '#1a6f8f')+
-    badgeLinha('MULTAS', fatMu, '#f3eafe', '#c9a8ea', '#8e44ad')+
-    badgeLinha('JUROS ATRASO', fatJa, '#fce8e8', '#e09090', '#a32d2d')+
-    badgeLinha('IOF', fatIof, '#fdf3e3', '#e0c07a', '#8a6416')+
-    badgeLinha('DESCONTOS', fatDe, '#eef2f5', '#c3ccd3', '#57697a')+
+    '<div style="display:grid;grid-template-columns:1fr 1fr;gap:0 16px;margin-top:8px;padding-top:8px;border-top:1px solid var(--bd)">'+
+      '<div style="'+gradeCol+'">'+celEsquerda+'</div>'+
+      '<div style="'+gradeCol+'">'+celDireita+'</div>'+
+    '</div>'+
   '</div>';
 }
 
@@ -1209,7 +1224,7 @@ function renderKPIs(d){
   document.getElementById('kdiv').innerHTML = '<div class="kgrid">' +
 
     '<div class="kcard"><div class="kcard-h">📄 FATURAMENTO</div><div class="kcard-b">' +
-      itemFaturamentoPrincipal(fat.total, fat.meta, fat.refinanciamento, fat.multas, fat.juros_atraso, fat.iof, fat.descontos) +
+      itemFaturamentoPrincipal(fat.total, fat.meta, fat.operacoes, fat.prorrogacoes, fat.redesconto, fat.refinanciamento, fat.multas, fat.juros_atraso, fat.iof, fat.recuperacao_tarifas, fat.descontos) +
       itemReceitas(recReal, recMeta, recLiquidada, recIofTotal, fM) +
       itemDespesa('Despesa do mês', desp.real, desp.meta, tpEyeBtnHtml()) +
       itemResultado(resultadoReal, resultadoMetaSoma) +
@@ -1893,6 +1908,7 @@ var CAMPOS_FORM = [
   {tipo:'unico', chave:'faturamento_multas', label:'Faturamento — Multas', secao:'Faturamento', formato:'money'},
   {tipo:'unico', chave:'faturamento_juros_atraso', label:'Faturamento — Juros de Atraso', secao:'Faturamento', formato:'money'},
   {tipo:'unico', chave:'faturamento_iof', label:'Faturamento — IOF', secao:'Faturamento', formato:'money'},
+  {tipo:'unico', chave:'fat_recuperacao_tarifas', label:'Faturamento — Recuperação de Tarifas', secao:'Faturamento', formato:'money'},
   {tipo:'unico', chave:'faturamento_descontos', label:'Faturamento — Descontos (negativo)', secao:'Faturamento', formato:'money'},
   {tipo:'par', chave:'despesa', label:'Despesa', secao:'Faturamento', formato:'money'},
   {tipo:'unico', chave:'receitas_realizado', label:'Receitas — Realizado', secao:'Faturamento', formato:'money'},
@@ -2033,6 +2049,7 @@ function valorCampoUnico(registro, chave){
   if(chave==='faturamento_multas') return registro.faturamento ? registro.faturamento.multas : undefined;
   if(chave==='faturamento_juros_atraso') return registro.faturamento ? registro.faturamento.juros_atraso : undefined;
   if(chave==='faturamento_iof') return registro.faturamento ? registro.faturamento.iof : undefined;
+  if(chave==='fat_recuperacao_tarifas') return registro.faturamento ? registro.faturamento.recuperacao_tarifas : undefined;
   if(chave==='faturamento_descontos') return registro.faturamento ? registro.faturamento.descontos : undefined;
   if(chave==='taxa_meta') return registro.taxa ? registro.taxa.meta : undefined;
   if(chave==='taxa_operacoes') return registro.taxa ? registro.taxa.operacoes : undefined;
