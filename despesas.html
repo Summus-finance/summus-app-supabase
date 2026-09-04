@@ -9,6 +9,9 @@
 <script>
 (function(){
   try{
+    if(localStorage.getItem('summus_dark')==='1'){
+      document.documentElement.classList.add('dk');
+    }
     var corCache = localStorage.getItem('summus_cor_sistema');
     if(corCache){
       document.documentElement.style.setProperty('--br', corCache);
@@ -34,6 +37,7 @@
   --body:'IBM Plex Sans',"Segoe UI",Arial,sans-serif;
   --num:'IBM Plex Mono',ui-monospace,SFMono-Regular,Menlo,monospace;
 }
+.dk{--bg:#12141a;--cd:#1c1f26;--cd2:#15171d;--bd:#2b2f38;--t1:#e8e9ec;--t2:#9199a6;--t3:#565c68}
 body{font-family:var(--body);background:var(--bg);color:var(--t1);min-height:100vh;-webkit-font-smoothing:antialiased;padding:14px}
 h1,h2,h3{font-family:var(--disp)}
 /* HEADER */

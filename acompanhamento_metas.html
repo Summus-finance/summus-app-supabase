@@ -37,7 +37,7 @@
   --body:'IBM Plex Sans',"Segoe UI",Arial,sans-serif;
   --num:'IBM Plex Mono',ui-monospace,SFMono-Regular,Menlo,monospace;
 }
-.dk{--bg:#0d1712;--cd:#152019;--cd2:#0d1712;--bd:#243529;--t1:#eef3ea;--t2:#8fa088;--t3:#4a5a49}
+.dk{--bg:#12141a;--cd:#1c1f26;--cd2:#15171d;--bd:#2b2f38;--t1:#e8e9ec;--t2:#9199a6;--t3:#565c68}
 body{font-family:var(--body);background:var(--bg);color:var(--t1);min-height:100vh;-webkit-font-smoothing:antialiased}
 h1,h2,h3,.kl,.fl,.mo-sec h3,.mo-head h2,.kcard-h,.tp-chart-card h3,.mi-l{font-family:var(--disp)}
 .kv,.krv,.kr,.mi-v .real,td.num,.num,th.num{font-family:var(--num);font-variant-numeric:tabular-nums}
@@ -87,7 +87,7 @@ h1,h2,h3,.kl,.fl,.mo-sec h3,.mo-head h2,.kcard-h,.tp-chart-card h3,.mi-l{font-fa
 .kcard:hover{box-shadow:0 6px 18px -6px rgba(28,35,29,.18);transform:translateY(-1px)}
 .kcard-h{background:linear-gradient(155deg,var(--br) 0%,var(--br-ink) 100%);color:#fff;padding:10px 16px;font-size:13px;font-weight:600;display:flex;align-items:center;gap:8px;letter-spacing:.1px}
 .kcard-b{padding:14px 16px}
-.mi{padding-bottom:14px;margin-bottom:14px;border-bottom:1px solid var(--bd)}
+.mi{padding-bottom:9px;margin-bottom:9px;border-bottom:1px solid var(--bd)}
 .mi:last-child{padding-bottom:0;margin-bottom:0;border-bottom:none}
 .mi-h{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;gap:8px}
 .mi-l{font-size:13px;color:var(--t1);font-weight:600}
@@ -826,7 +826,7 @@ function linhaTaxaPonderada(taxaVal){
   return '<div class="mi-v" style="margin-top:2px;height:13px;line-height:13px"><span></span><span>Tx Média Ponderada: '+txStr+'</span></div>';
 }
 
-function itemMeta(lbl, real, meta, fmt, extraHtml, faltaAbaixo, compacto){
+function itemMeta(lbl, real, meta, fmt, extraHtml, faltaAbaixo, compacto, extraPx){
   fmt = fmt||fN;
   var pctReal = meta>0?Math.round(real/meta*100):0;
   var pct=Math.min(Math.max(pctReal,0),100);
@@ -834,13 +834,14 @@ function itemMeta(lbl, real, meta, fmt, extraHtml, faltaAbaixo, compacto){
   var falta=meta-real;
   var faltaTxt = meta>0 ? (falta>0?('Falta: '+fmt(falta)):'✓ Meta atingida!') : '';
   var espacador = '<div style="font-size:12px;margin-top:2px;visibility:hidden;height:13px;line-height:13px">.</div>';
+  var extraDiv = extraPx ? '<div style="height:'+extraPx+'px"></div>' : '';
   if(faltaAbaixo){
     return '<div class="mi"><div class="mi-h"><div style="display:flex;align-items:center;gap:8px;min-width:0"><span class="mi-l">'+lbl+'</span>'+(extraHtml||'')+'</div>'+
       (meta>0?'<span class="mi-badge '+cls+'">'+pctReal+'%'+(pctReal>=100?' ✓':'')+'</span>':'')+'</div>'+
       (meta>0?'<div class="bar-w"><div class="bar" style="width:'+pct+'%;background:'+barColor(cls)+'"></div></div>':'')+
       '<div class="mi-v" style="justify-content:flex-start"><span><span class="real">'+fmt(real)+'</span>'+(meta>0?'<span class="sep">de</span>'+fmt(meta):'')+'</span></div>'+
       (meta>0?'<div style="font-size:13px;color:var(--t2);margin-top:2px;height:13px;line-height:13px">'+faltaTxt+'</div>':'')+
-      (compacto?'':(espacador+espacador+espacador))+'</div>';
+      (compacto?'':(espacador+espacador+espacador))+extraDiv+'</div>';
   }
   return '<div class="mi"><div class="mi-h"><div style="display:flex;align-items:center;gap:8px;min-width:0"><span class="mi-l">'+lbl+'</span>'+(extraHtml||'')+'</div>'+
     (meta>0?'<span class="mi-badge '+cls+'">'+pctReal+'%'+(pctReal>=100?' ✓':'')+'</span>':'')+'</div>'+
@@ -859,32 +860,33 @@ function itemFaturamentoPrincipal(real, meta, fatOp, fatPr, fatRd, fatRf, fatMu,
   var cls=badgeCls(pctReal);
   var falta=meta-real;
   var faltaTxt = meta>0 ? (falta>0?('Falta: '+fM(falta)):'✓ Meta atingida!') : '';
-  // Cada linha vira 2 células (rótulo + valor) de uma ÚNICA grade por
-  // coluna — assim a largura do rótulo é a mesma em todas as linhas
-  // (a da maior etiqueta), e os valores caem sempre na mesma borda à
-  // direita, alinhados de verdade, não "um do lado do outro" sozinhos.
-  function badgeCelulas(label, valor, bg, borda, cor){
-    return '<span style="font-size:8.5px;font-weight:700;padding:2px 7px;border-radius:20px;background:'+bg+';border:1px solid '+borda+';color:'+cor+';white-space:nowrap;line-height:11px;justify-self:start;align-self:center">'+label+'</span>'+
-      '<span style="font-size:11.5px;color:var(--t1);font-weight:600;white-space:nowrap;font-family:var(--num);justify-self:end;align-self:center">'+fM(valor)+'</span>';
+  // Cada linha é uma única "caixa" (rótulo + valor sempre juntos, nunca
+  // separados) — o rótulo tem largura FIXA (não depende do texto), então
+  // toda linha, em qualquer uma das duas colunas, alinha o valor exatamente
+  // na mesma posição.
+  function badgeLinha(label, valor, bg, borda, cor){
+    return '<div style="display:flex;align-items:center;height:11px;margin-top:5px">'+
+      '<span style="font-size:8px;font-weight:700;padding:0 5px;border-radius:20px;background:'+bg+';border:1px solid '+borda+';color:'+cor+';white-space:nowrap;line-height:10px;flex:0 0 92px;text-align:center;overflow:hidden;text-overflow:ellipsis">'+label+'</span>'+
+      '<span style="font-size:9.5px;line-height:10px;color:var(--t1);font-weight:600;white-space:nowrap;font-family:var(--num);margin-left:auto">'+fM(valor)+'</span>'+
+    '</div>';
   }
-  var celEsquerda =
-    badgeCelulas('DESÁGIO', fatOp, '#e4f3ea', '#a8d8bf', '#1d7a5c')+
-    badgeCelulas('PRORROGAÇÕES', fatPr, '#e0f2f1', '#80cbc4', '#00695c')+
-    badgeCelulas('REDESCONTO', fatRd, '#e8eaf6', '#9fa8da', '#303f9f')+
-    badgeCelulas('REFINANCIAMENTO', fatRf, '#e3f4fb', '#9ecfe6', '#1a6f8f')+
-    badgeCelulas('MULTAS', fatMu, '#f3eafe', '#c9a8ea', '#8e44ad');
-  var celDireita =
-    badgeCelulas('JUROS ATRASO', fatJa, '#fce8e8', '#e09090', '#a32d2d')+
-    badgeCelulas('IOF', fatIof, '#fdf3e3', '#e0c07a', '#8a6416')+
-    badgeCelulas('RECUPERAÇÃO TARIFAS', fatRt, '#e0f7fa', '#80deea', '#00838f')+
-    badgeCelulas('DESCONTOS', fatDe, '#eef2f5', '#c3ccd3', '#57697a');
-  var gradeCol = 'display:grid;grid-template-columns:auto 1fr;column-gap:8px;row-gap:6px;align-items:center';
-  return '<div class="mi"><div class="mi-h"><span class="mi-l">Faturamento</span>'+(meta>0?'<span class="mi-badge '+cls+'">'+pctReal+'%'+(pctReal>=100?' ✓':'')+'</span>':'')+'</div>'+
+  var colEsquerda =
+    badgeLinha('DESÁGIO', fatOp, '#e4f3ea', '#a8d8bf', '#1d7a5c')+
+    badgeLinha('PRORROGAÇÕES', fatPr, '#e0f2f1', '#80cbc4', '#00695c')+
+    badgeLinha('REDESCONTO', fatRd, '#e8eaf6', '#9fa8da', '#303f9f')+
+    badgeLinha('REFINANCIAMENTO', fatRf, '#e3f4fb', '#9ecfe6', '#1a6f8f')+
+    badgeLinha('MULTAS', fatMu, '#f3eafe', '#c9a8ea', '#8e44ad');
+  var colDireita =
+    badgeLinha('JUROS ATRASO', fatJa, '#fce8e8', '#e09090', '#a32d2d')+
+    badgeLinha('IOF', fatIof, '#fdf3e3', '#e0c07a', '#8a6416')+
+    badgeLinha('RECUP. TARIFAS', fatRt, '#e0f7fa', '#80deea', '#00838f')+
+    badgeLinha('DESCONTOS', fatDe, '#eef2f5', '#c3ccd3', '#57697a');
+  return '<div class="mi" style="padding-bottom:6px;margin-bottom:7px"><div class="mi-h"><span class="mi-l">Faturamento</span>'+(meta>0?'<span class="mi-badge '+cls+'">'+pctReal+'%'+(pctReal>=100?' ✓':'')+'</span>':'')+'</div>'+
     (meta>0?'<div class="bar-w"><div class="bar" style="width:'+pct+'%;background:'+barColor(cls)+'"></div></div>':'')+
     '<div class="mi-v"><span><span class="real">'+fM(real)+'</span>'+(meta>0?'<span class="sep">de</span>'+fM(meta):'')+'</span>'+(meta>0?'<span>'+faltaTxt+'</span>':'')+'</div>'+
-    '<div style="display:grid;grid-template-columns:1fr 1fr;gap:0 16px;margin-top:8px;padding-top:8px;border-top:1px solid var(--bd)">'+
-      '<div style="'+gradeCol+'">'+celEsquerda+'</div>'+
-      '<div style="'+gradeCol+'">'+celDireita+'</div>'+
+    '<div style="display:grid;grid-template-columns:1fr 1fr;gap:0 10px;margin-top:5px">'+
+      '<div>'+colEsquerda+'</div>'+
+      '<div>'+colDireita+'</div>'+
     '</div>'+
   '</div>';
 }
@@ -1035,7 +1037,7 @@ function itemOperado(lbl, operado, cadastrado){
     '<div style="font-size:12px;margin-top:2px;visibility:hidden;height:13px;line-height:13px">.</div></div>';
 }
 
-function itemOpLinha(lbl, real, meta, vol, fatVal, taxaVal){
+function itemOpLinha(lbl, real, meta, vol, fatVal, taxaVal, extraPx){
   var pctReal = meta>0?Math.round(real/meta*100):0;
   var pct=Math.min(Math.max(pctReal,0),100);
   var cls=badgeCls(pctReal);
@@ -1047,7 +1049,8 @@ function itemOpLinha(lbl, real, meta, vol, fatVal, taxaVal){
     linhaFaltaComFat(faltaTxt, fatVal)+
     linhaTaxaPonderada(taxaVal)+
     '<div style="font-size:12px;margin-top:2px;visibility:hidden;height:13px;line-height:13px">.</div>'+
-    '<div style="font-size:12px;margin-top:2px;visibility:hidden;height:13px;line-height:13px">.</div></div>';
+    '<div style="font-size:12px;margin-top:2px;visibility:hidden;height:13px;line-height:13px">.</div>'+
+    (extraPx?'<div style="height:'+extraPx+'px"></div>':'')+'</div>';
 }
 
 // Igual à Despesa do mês: "limite" é um teto, não uma meta a bater — ficar ABAIXO
@@ -1231,14 +1234,14 @@ function renderKPIs(d){
     '</div></div>' +
 
     '<div class="kcard"><div class="kcard-h">👥 COMERCIAL</div><div class="kcard-b">' +
-      itemMeta('Total cedentes cadastrados', ced.real, ced.meta, fN, chkCed, true) +
+      itemMeta('Total cedentes cadastrados', ced.real, ced.meta, fN, chkCed, true, false, 20) +
       itemOperado('Total cedentes operado', totalCedOperado, ced.real) +
       itemMeta('Novos cedentes', novosCed.real, novosCed.meta, fN, chkNovos, true) +
       itemMeta('Operaram no mês', operaram.real, operaram.meta, fN, null, true) +
     '</div></div>' +
 
     '<div class="kcard"><div class="kcard-h">🔄 OPERAÇÃO</div><div class="kcard-b">' +
-      itemOpLinha('Operações', op.real, op.meta, volOp, fat.operacoes, txOpPond) +
+      itemOpLinha('Operações', op.real, op.meta, volOp, fat.operacoes, txOpPond, 20) +
       itemOpLimite('Prorrogações', pr.real, pr.meta, volPr, fat.prorrogacoes, txPrPond) +
       itemOpLimite('Redescontos', rd.real, rd.meta, volRd, fat.redesconto, txRdPond) +
       itemOpTotal(op.real,pr.real,rd.real, op.meta, volOp,volPr,volRd, fat.operacoes+fat.prorrogacoes+fat.redesconto, txTotalPond) +
