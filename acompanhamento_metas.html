@@ -534,6 +534,12 @@ function mxrNestify(row){
     despesa: { meta: row.despesa_meta, realizado: row.despesa_realizado },
     receitas_realizado: row.receitas_realizado,
     receita_iof: row.receita_iof,
+    receita_prorrogacao: row.receita_prorrogacao,
+    receita_redesconto: row.receita_redesconto,
+    receita_multas: row.receita_multas,
+    receitas_juros_atraso: row.receitas_juros_atraso,
+    outras_receitas: row.outras_receitas,
+    descontos_de_receitas: row.descontos_de_receitas,
     resultado_meta: row.resultado_meta,
     captacao_investidor_meta: row.captacao_investidor_meta,
     cedentes: { meta: row.cedentes_meta, realizado: row.cedentes_realizado },
@@ -894,25 +900,38 @@ function itemFaturamentoPrincipal(real, meta, fatOp, fatPr, fatRd, fatRf, fatMu,
 // Item "Receitas": mostra o total (Receita Liquidada + IOF somados) na
 // barra principal, e os dois valores que compõem esse total como badges
 // discretos abaixo — mesmo padrão visual do card de Faturamento.
-function itemReceitas(real, meta, recLiquidada, recIof, fmt){
+function itemReceitas(real, meta, recDesagio, recProrrogacao, recRedesconto, recMultas, recJurosAtraso, recIof, recOutras, recDescontos, fmt){
   var pctReal = meta>0?Math.round(real/meta*100):0;
   var pct=Math.min(Math.max(pctReal,0),100);
   var cls=badgeCls(pctReal);
   var falta=meta-real;
   var faltaTxt = meta>0 ? (falta>0?('Falta: '+fmt(falta)):'✓ Meta atingida!') : '';
-  var espacador = '<div style="font-size:12px;margin-top:2px;visibility:hidden;height:13px;line-height:13px">.</div>';
-  function badgeLinha(label, valor, bg, borda, cor){
-    return '<div style="display:flex;align-items:center;justify-content:space-between;margin-top:2px;height:13px">'+
-      '<span style="font-size:9px;font-weight:700;padding:0 8px;border-radius:20px;background:'+bg+';border:1px solid '+borda+';color:'+cor+';white-space:nowrap;line-height:12px;display:inline-block">'+label+'</span>'+
-      '<span style="font-size:12px;color:var(--t1);font-weight:600;line-height:13px">'+fmt(valor)+'</span>'+
+  // Mesmo estilo visual (tamanho, espaçamento) do bloco de badges do
+  // Faturamento — pra ficar consistente entre os dois cards.
+  function badgeLinha(label, valor, bg, borda, cor, tooltip){
+    var tituloAttr = tooltip ? ' title="'+tooltip+'"' : '';
+    return '<div style="display:flex;align-items:center;height:11px;margin-top:5px"'+tituloAttr+'>'+
+      '<span style="font-size:8px;font-weight:700;padding:0 5px;border-radius:20px;background:'+bg+';border:1px solid '+borda+';color:'+cor+';white-space:nowrap;line-height:10px;flex:0 0 92px;text-align:center;overflow:hidden;text-overflow:ellipsis'+(tooltip?';cursor:help;text-decoration:underline dotted':'')+'">'+label+'</span>'+
+      '<span style="font-size:9.5px;line-height:10px;color:var(--t1);font-weight:600;white-space:nowrap;font-family:var(--num);margin-left:auto">'+fmt(valor)+'</span>'+
     '</div>';
   }
-  return '<div class="mi"><div class="mi-h"><span class="mi-l">Receitas</span>'+(meta>0?'<span class="mi-badge '+cls+'">'+pctReal+'%'+(pctReal>=100?' ✓':'')+'</span>':'')+'</div>'+
+  var colEsquerda =
+    badgeLinha('DESÁGIO', recDesagio, '#e4f3ea', '#a8d8bf', '#1d7a5c')+
+    badgeLinha('PRORROGAÇÕES', recProrrogacao, '#e0f2f1', '#80cbc4', '#00695c')+
+    badgeLinha('REDESCONTO', recRedesconto, '#e8eaf6', '#9fa8da', '#303f9f')+
+    badgeLinha('MULTAS', recMultas, '#f3eafe', '#c9a8ea', '#8e44ad');
+  var colDireita =
+    badgeLinha('JUROS ATRASO', recJurosAtraso, '#fce8e8', '#e09090', '#a32d2d')+
+    badgeLinha('IOF', recIof, '#fdf3e3', '#e0c07a', '#8a6416')+
+    badgeLinha('OUTROS', recOutras, '#e0f7fa', '#80deea', '#00838f', 'Outros representa as receitas de Refinanciamento + Recuperação de Tarifas')+
+    badgeLinha('DESCONTOS', recDescontos, '#eef2f5', '#c3ccd3', '#57697a');
+  return '<div class="mi" style="padding-bottom:6px;margin-bottom:7px"><div class="mi-h"><span class="mi-l">Receitas</span>'+(meta>0?'<span class="mi-badge '+cls+'">'+pctReal+'%'+(pctReal>=100?' ✓':'')+'</span>':'')+'</div>'+
     (meta>0?'<div class="bar-w"><div class="bar" style="width:'+pct+'%;background:'+barColor(cls)+'"></div></div>':'')+
     '<div class="mi-v"><span><span class="real">'+fmt(real)+'</span>'+(meta>0?'<span class="sep">de</span>'+fmt(meta):'')+'</span>'+(meta>0?'<span>'+faltaTxt+'</span>':'')+'</div>'+
-    badgeLinha('RECEITA LIQUIDADA', recLiquidada, '#e4f3ea', '#a8d8bf', '#1d7a5c')+
-    badgeLinha('IOF', recIof, '#fdf3e3', '#e0c07a', '#8a6416')+
-    espacador + espacador +
+    '<div style="display:grid;grid-template-columns:1fr 1fr;gap:0 10px;margin-top:5px">'+
+      '<div>'+colEsquerda+'</div>'+
+      '<div>'+colDireita+'</div>'+
+    '</div>'+
   '</div>';
 }
 
@@ -970,10 +989,10 @@ function itemTicketMedio(valor){
 }
 
 // Composição do Faturamento: de onde vem o faturamento, em % e R$ por categoria.
-function itemComposicaoFaturamento(fatOp, fatPr, fatRd, fatRf, fatMu, fatJa, fatDe){
-  var total = fatOp+fatPr+fatRd+fatRf+fatMu+fatJa+fatDe;
+function itemComposicaoFaturamento(fatOp, fatPr, fatRd, fatRf, fatMu, fatJa, fatIof, fatRt, fatDe){
+  var total = fatOp+fatPr+fatRd+fatRf+fatMu+fatJa+fatIof+fatRt+fatDe;
   function pct(v){ return total!==0 ? (v/total*100) : 0; }
-  var pOp=pct(fatOp), pPr=pct(fatPr), pRd=pct(fatRd), pRf=pct(fatRf), pMu=pct(fatMu), pJa=pct(fatJa), pDe=pct(fatDe);
+  var pOp=pct(fatOp), pPr=pct(fatPr), pRd=pct(fatRd), pRf=pct(fatRf), pMu=pct(fatMu), pJa=pct(fatJa), pIof=pct(fatIof), pRt=pct(fatRt), pDe=pct(fatDe);
   // Barra visual: só as 3 categorias principais (multas/juros/refinanciamento costumam ser
   // pequenos e descontos pode ser negativo — melhor não colocar na barra).
   var barSegs = '<div style="display:flex;height:9px;border-radius:99px;overflow:hidden;background:var(--bg);margin-top:6px">'+
@@ -995,6 +1014,8 @@ function itemComposicaoFaturamento(fatOp, fatPr, fatRd, fatRf, fatMu, fatJa, fat
     (fatRf?linha('#1a6f8f','Refinanciamento',pRf,fatRf):'')+
     (fatMu?linha('#8e44ad','Multas',pMu,fatMu):'')+
     (fatJa?linha('#c0392b','Juros de Atraso',pJa,fatJa):'')+
+    (fatIof?linha('#8a6416','IOF',pIof,fatIof):'')+
+    (fatRt?linha('#00838f','Recuperação de Tarifas',pRt,fatRt):'')+
     (fatDe?linha('#7a8a99','Descontos',pDe,fatDe):'')+
   '</div>';
 }
@@ -1056,7 +1077,7 @@ function itemOpLinha(lbl, real, meta, vol, fatVal, taxaVal, extraPx){
 // Igual à Despesa do mês: "limite" é um teto, não uma meta a bater — ficar ABAIXO
 // do limite é bom (verde); ultrapassar é ruim (vermelho). Usado em Prorrogações
 // e Redescontos, onde o número do mês é um limite máximo desejado.
-function itemOpLimite(lbl, real, limite, vol, fatVal, taxaVal){
+function itemOpLimite(lbl, real, limite, vol, fatVal, taxaVal, extraPx){
   var pctReal = limite>0?Math.round(real/limite*100):0;
   var pct=Math.min(Math.max(pctReal,0),100);
   var dentro = limite>0 ? (real<=limite) : true;
@@ -1070,7 +1091,8 @@ function itemOpLimite(lbl, real, limite, vol, fatVal, taxaVal){
     linhaFaltaComFat(faltaTxt, fatVal)+
     linhaTaxaPonderada(taxaVal)+
     '<div style="font-size:12px;margin-top:2px;visibility:hidden;height:13px;line-height:13px">.</div>'+
-    '<div style="font-size:12px;margin-top:2px;visibility:hidden;height:13px;line-height:13px">.</div></div>';
+    '<div style="font-size:12px;margin-top:2px;visibility:hidden;height:13px;line-height:13px">.</div>'+
+    (extraPx?'<div style="height:'+extraPx+'px"></div>':'')+'</div>';
 }
 
 // Total = Operações realizadas + Prorrogações realizadas + Redescontos realizados (numerador)
@@ -1103,9 +1125,15 @@ function renderKPIs(d){
     return;
   }
   var fat=somaFaturamento(d), desp=somaPar(d,'despesa');
-  var recLiquidada=somaCampo(d,'receitas_realizado');
+  var recLiquidada=somaCampo(d,'receitas_realizado'); // agora representa "Receita — Deságio"
   var recIofTotal=somaCampo(d,'receita_iof');
-  var recReal = recLiquidada + recIofTotal; // Total de Receitas = Receita Liquidada + Receita IOF
+  var recProrrogacao=somaCampo(d,'receita_prorrogacao');
+  var recRedesconto=somaCampo(d,'receita_redesconto');
+  var recMultas=somaCampo(d,'receita_multas');
+  var recJurosAtraso=somaCampo(d,'receitas_juros_atraso');
+  var recOutras=somaCampo(d,'outras_receitas');
+  var recDescontos=somaCampo(d,'descontos_de_receitas');
+  var recReal = recLiquidada + recIofTotal + recProrrogacao + recRedesconto + recMultas + recJurosAtraso + recOutras + recDescontos;
   var ced=valorPorEmpresaOuSoma(d,'cedentes', somarCedentes);
   var totalCedOperado=somaCampo(d,'total_cedentes_operado');
   var novosCed=valorPorEmpresaOuSoma(d,'novos_cedentes', somarNovosCedentes);
@@ -1228,7 +1256,7 @@ function renderKPIs(d){
 
     '<div class="kcard"><div class="kcard-h">📄 FATURAMENTO</div><div class="kcard-b">' +
       itemFaturamentoPrincipal(fat.total, fat.meta, fat.operacoes, fat.prorrogacoes, fat.redesconto, fat.refinanciamento, fat.multas, fat.juros_atraso, fat.iof, fat.recuperacao_tarifas, fat.descontos) +
-      itemReceitas(recReal, recMeta, recLiquidada, recIofTotal, fM) +
+      itemReceitas(recReal, recMeta, recLiquidada, recProrrogacao, recRedesconto, recMultas, recJurosAtraso, recIofTotal, recOutras, recDescontos, fM) +
       itemDespesa('Despesa do mês', desp.real, desp.meta, tpEyeBtnHtml()) +
       itemResultado(resultadoReal, resultadoMetaSoma) +
     '</div></div>' +
@@ -1236,14 +1264,14 @@ function renderKPIs(d){
     '<div class="kcard"><div class="kcard-h">👥 COMERCIAL</div><div class="kcard-b">' +
       itemMeta('Total cedentes cadastrados', ced.real, ced.meta, fN, chkCed, true, false, 20) +
       itemOperado('Total cedentes operado', totalCedOperado, ced.real) +
-      itemMeta('Novos cedentes', novosCed.real, novosCed.meta, fN, chkNovos, true) +
+      itemMeta('Novos cedentes', novosCed.real, novosCed.meta, fN, chkNovos, true, false, 4) +
       itemMeta('Operaram no mês', operaram.real, operaram.meta, fN, null, true) +
     '</div></div>' +
 
     '<div class="kcard"><div class="kcard-h">🔄 OPERAÇÃO</div><div class="kcard-b">' +
       itemOpLinha('Operações', op.real, op.meta, volOp, fat.operacoes, txOpPond, 20) +
       itemOpLimite('Prorrogações', pr.real, pr.meta, volPr, fat.prorrogacoes, txPrPond) +
-      itemOpLimite('Redescontos', rd.real, rd.meta, volRd, fat.redesconto, txRdPond) +
+      itemOpLimite('Redescontos', rd.real, rd.meta, volRd, fat.redesconto, txRdPond, 4) +
       itemOpTotal(op.real,pr.real,rd.real, op.meta, volOp,volPr,volRd, fat.operacoes+fat.prorrogacoes+fat.redesconto, txTotalPond) +
     '</div></div>' +
 
@@ -1271,7 +1299,7 @@ function renderKPIs(d){
     '<div class="kcard"><div class="kcard-h">📊 INDICADORES</div><div class="kcard-b">' +
       itemMargem(margemPct) +
       itemTicketMedio(ticketMedio) +
-      itemComposicaoFaturamento(fat.operacoes, fat.prorrogacoes, fat.redesconto, fat.refinanciamento, fat.multas, fat.juros_atraso, fat.descontos) +
+      itemComposicaoFaturamento(fat.operacoes, fat.prorrogacoes, fat.redesconto, fat.refinanciamento, fat.multas, fat.juros_atraso, fat.iof, fat.recuperacao_tarifas, fat.descontos) +
     '</div></div>' +
 
   '</div>';
@@ -1914,8 +1942,14 @@ var CAMPOS_FORM = [
   {tipo:'unico', chave:'fat_recuperacao_tarifas', label:'Faturamento — Recuperação de Tarifas', secao:'Faturamento', formato:'money'},
   {tipo:'unico', chave:'faturamento_descontos', label:'Faturamento — Descontos (negativo)', secao:'Faturamento', formato:'money'},
   {tipo:'par', chave:'despesa', label:'Despesa', secao:'Faturamento', formato:'money'},
-  {tipo:'unico', chave:'receitas_realizado', label:'Receitas — Realizado', secao:'Faturamento', formato:'money'},
+  {tipo:'unico', chave:'receitas_realizado', label:'Receita — Deságio', secao:'Faturamento', formato:'money'},
+  {tipo:'unico', chave:'receita_prorrogacao', label:'Receita — Prorrogação', secao:'Faturamento', formato:'money'},
+  {tipo:'unico', chave:'receita_redesconto', label:'Receita — Redesconto', secao:'Faturamento', formato:'money'},
+  {tipo:'unico', chave:'receita_multas', label:'Receita — Multas', secao:'Faturamento', formato:'money'},
+  {tipo:'unico', chave:'receitas_juros_atraso', label:'Receita — Juros de Atraso', secao:'Faturamento', formato:'money'},
   {tipo:'unico', chave:'receita_iof', label:'Receitas — IOF', secao:'Faturamento', formato:'money'},
+  {tipo:'unico', chave:'outras_receitas', label:'Outras Receitas (Refinanciamento + Recup. Tarifas)', secao:'Faturamento', formato:'money'},
+  {tipo:'unico', chave:'descontos_de_receitas', label:'Descontos de Receitas (negativo)', secao:'Faturamento', formato:'money'},
   {tipo:'unico', chave:'resultado_meta', label:'Resultado do mês — Meta', secao:'Faturamento', formato:'money'},
 
   // TAXA
