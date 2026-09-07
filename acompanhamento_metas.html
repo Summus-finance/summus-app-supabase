@@ -113,6 +113,9 @@ h1,h2,h3,.kl,.fl,.mo-sec h3,.mo-head h2,.kcard-h,.tp-chart-card h3,.mi-l{font-fa
 .mo-alvo .fg{min-width:140px}
 .mo-alvo select,.mo-alvo input{width:100%;border:1px solid var(--bd);border-radius:7px;padding:7px 10px;font-size:13px;font-family:var(--body);background:var(--cd);color:var(--t1)}
 .mo-sec{margin-bottom:18px}
+.mo-aba-btn{background:none;border:none;padding:9px 16px;font-size:13px;font-weight:600;color:var(--t3);cursor:pointer;border-bottom:3px solid transparent;margin-bottom:-2px;font-family:var(--body)}
+.mo-aba-btn:hover{color:var(--t2)}
+.mo-aba-ativa{color:var(--br);border-bottom-color:var(--br)}
 .mo-sec h3{font-size:12px;font-weight:700;color:var(--br);text-transform:uppercase;letter-spacing:.4px;margin-bottom:8px;padding-bottom:5px;border-bottom:1px solid var(--bd)}
 .mo-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
 .mo-grid.single{grid-template-columns:1fr 1fr 1fr}
@@ -378,7 +381,13 @@ h1,h2,h3,.kl,.fl,.mo-sec h3,.mo-head h2,.kcard-h,.tp-chart-card h3,.mi-l{font-fa
       <div class="fg"><label style="font-size:10px;font-weight:700;color:var(--t2);display:block;margin-bottom:3px;text-transform:uppercase">Ano</label><input type="number" id="mo-ano" onchange="moRecarregarAlvo()"></div>
     </div>
 
-    <div id="mo-form"></div>
+    <div class="mo-abas" style="display:flex;gap:6px;margin-bottom:14px;border-bottom:2px solid var(--bd)">
+      <button type="button" id="mo-aba-realizado" class="mo-aba-btn mo-aba-ativa" onclick="mostrarAbaLancar('realizado')">Realizado (dia a dia)</button>
+      <button type="button" id="mo-aba-meta" class="mo-aba-btn" onclick="mostrarAbaLancar('meta')">Metas (raramente muda)</button>
+    </div>
+
+    <div id="mo-form-realizado"></div>
+    <div id="mo-form-meta" style="display:none"></div>
 
     <div class="mo-msg" id="mo-msg"></div>
     <div class="mo-foot">
@@ -539,6 +548,7 @@ function mxrNestify(row){
     receita_multas: row.receita_multas,
     receitas_juros_atraso: row.receitas_juros_atraso,
     outras_receitas: row.outras_receitas,
+    receita_recuperacao_tarifas: row.receita_recuperacao_tarifas,
     descontos_de_receitas: row.descontos_de_receitas,
     resultado_meta: row.resultado_meta,
     captacao_investidor_meta: row.captacao_investidor_meta,
@@ -900,7 +910,7 @@ function itemFaturamentoPrincipal(real, meta, fatOp, fatPr, fatRd, fatRf, fatMu,
 // Item "Receitas": mostra o total (Receita Liquidada + IOF somados) na
 // barra principal, e os dois valores que compõem esse total como badges
 // discretos abaixo — mesmo padrão visual do card de Faturamento.
-function itemReceitas(real, meta, recDesagio, recProrrogacao, recRedesconto, recMultas, recJurosAtraso, recIof, recOutras, recDescontos, fmt){
+function itemReceitas(real, meta, recDesagio, recProrrogacao, recRedesconto, recMultas, recJurosAtraso, recIof, recRecupTarifas, recOutras, recDescontos, fmt){
   var pctReal = meta>0?Math.round(real/meta*100):0;
   var pct=Math.min(Math.max(pctReal,0),100);
   var cls=badgeCls(pctReal);
@@ -919,11 +929,12 @@ function itemReceitas(real, meta, recDesagio, recProrrogacao, recRedesconto, rec
     badgeLinha('DESÁGIO', recDesagio, '#e4f3ea', '#a8d8bf', '#1d7a5c')+
     badgeLinha('PRORROGAÇÕES', recProrrogacao, '#e0f2f1', '#80cbc4', '#00695c')+
     badgeLinha('REDESCONTO', recRedesconto, '#e8eaf6', '#9fa8da', '#303f9f')+
-    badgeLinha('MULTAS', recMultas, '#f3eafe', '#c9a8ea', '#8e44ad');
+    badgeLinha('MULTAS', recMultas, '#f3eafe', '#c9a8ea', '#8e44ad')+
+    badgeLinha('JUROS ATRASO', recJurosAtraso, '#fce8e8', '#e09090', '#a32d2d');
   var colDireita =
-    badgeLinha('JUROS ATRASO', recJurosAtraso, '#fce8e8', '#e09090', '#a32d2d')+
     badgeLinha('IOF', recIof, '#fdf3e3', '#e0c07a', '#8a6416')+
-    badgeLinha('OUTROS', recOutras, '#e0f7fa', '#80deea', '#00838f', 'Outros representa as receitas de Refinanciamento + Recuperação de Tarifas')+
+    badgeLinha('RECUP. TARIFAS', recRecupTarifas, '#e0f7fa', '#80deea', '#00838f')+
+    badgeLinha('OUTRAS RECEITAS', recOutras, '#ede7f6', '#b39ddb', '#5e35b1', 'Outras receitas financeiras e receitas de rendimentos bancário')+
     badgeLinha('DESCONTOS', recDescontos, '#eef2f5', '#c3ccd3', '#57697a');
   return '<div class="mi" style="padding-bottom:6px;margin-bottom:7px"><div class="mi-h"><span class="mi-l">Receitas</span>'+(meta>0?'<span class="mi-badge '+cls+'">'+pctReal+'%'+(pctReal>=100?' ✓':'')+'</span>':'')+'</div>'+
     (meta>0?'<div class="bar-w"><div class="bar" style="width:'+pct+'%;background:'+barColor(cls)+'"></div></div>':'')+
@@ -1043,7 +1054,7 @@ function itemResultado(real, meta){
     '<div style="font-size:12px;margin-top:2px;visibility:hidden;height:13px;line-height:13px">.</div></div>';
 }
 
-function itemOperado(lbl, operado, cadastrado){
+function itemOperado(lbl, operado, cadastrado, extraPx){
   var pctReal = cadastrado>0?Math.round(operado/cadastrado*100):0;
   var pct=Math.min(Math.max(pctReal,0),100);
   var cls=badgeCls(pctReal);
@@ -1055,7 +1066,8 @@ function itemOperado(lbl, operado, cadastrado){
     (cadastrado>0?'<div style="font-size:13px;color:var(--t2);margin-top:2px;height:13px;line-height:13px">'+faltaTxt+'</div>':'')+
     '<div style="font-size:12px;margin-top:2px;visibility:hidden;height:13px;line-height:13px">.</div>'+
     '<div style="font-size:12px;margin-top:2px;visibility:hidden;height:13px;line-height:13px">.</div>'+
-    '<div style="font-size:12px;margin-top:2px;visibility:hidden;height:13px;line-height:13px">.</div></div>';
+    '<div style="font-size:12px;margin-top:2px;visibility:hidden;height:13px;line-height:13px">.</div>'+
+    (extraPx?'<div style="height:'+extraPx+'px"></div>':'')+'</div>';
 }
 
 function itemOpLinha(lbl, real, meta, vol, fatVal, taxaVal, extraPx){
@@ -1132,8 +1144,9 @@ function renderKPIs(d){
   var recMultas=somaCampo(d,'receita_multas');
   var recJurosAtraso=somaCampo(d,'receitas_juros_atraso');
   var recOutras=somaCampo(d,'outras_receitas');
+  var recRecupTarifas=somaCampo(d,'receita_recuperacao_tarifas');
   var recDescontos=somaCampo(d,'descontos_de_receitas');
-  var recReal = recLiquidada + recIofTotal + recProrrogacao + recRedesconto + recMultas + recJurosAtraso + recOutras + recDescontos;
+  var recReal = recLiquidada + recIofTotal + recProrrogacao + recRedesconto + recMultas + recJurosAtraso + recRecupTarifas + recOutras + recDescontos;
   var ced=valorPorEmpresaOuSoma(d,'cedentes', somarCedentes);
   var totalCedOperado=somaCampo(d,'total_cedentes_operado');
   var novosCed=valorPorEmpresaOuSoma(d,'novos_cedentes', somarNovosCedentes);
@@ -1256,22 +1269,22 @@ function renderKPIs(d){
 
     '<div class="kcard"><div class="kcard-h">📄 FATURAMENTO</div><div class="kcard-b">' +
       itemFaturamentoPrincipal(fat.total, fat.meta, fat.operacoes, fat.prorrogacoes, fat.redesconto, fat.refinanciamento, fat.multas, fat.juros_atraso, fat.iof, fat.recuperacao_tarifas, fat.descontos) +
-      itemReceitas(recReal, recMeta, recLiquidada, recProrrogacao, recRedesconto, recMultas, recJurosAtraso, recIofTotal, recOutras, recDescontos, fM) +
+      itemReceitas(recReal, recMeta, recLiquidada, recProrrogacao, recRedesconto, recMultas, recJurosAtraso, recIofTotal, recRecupTarifas, recOutras, recDescontos, fM) +
       itemDespesa('Despesa do mês', desp.real, desp.meta, tpEyeBtnHtml()) +
       itemResultado(resultadoReal, resultadoMetaSoma) +
     '</div></div>' +
 
     '<div class="kcard"><div class="kcard-h">👥 COMERCIAL</div><div class="kcard-b">' +
       itemMeta('Total cedentes cadastrados', ced.real, ced.meta, fN, chkCed, true, false, 20) +
-      itemOperado('Total cedentes operado', totalCedOperado, ced.real) +
-      itemMeta('Novos cedentes', novosCed.real, novosCed.meta, fN, chkNovos, true, false, 4) +
+      itemOperado('Total cedentes operado', totalCedOperado, ced.real, 20) +
+      itemMeta('Novos cedentes', novosCed.real, novosCed.meta, fN, chkNovos, true) +
       itemMeta('Operaram no mês', operaram.real, operaram.meta, fN, null, true) +
     '</div></div>' +
 
     '<div class="kcard"><div class="kcard-h">🔄 OPERAÇÃO</div><div class="kcard-b">' +
       itemOpLinha('Operações', op.real, op.meta, volOp, fat.operacoes, txOpPond, 20) +
-      itemOpLimite('Prorrogações', pr.real, pr.meta, volPr, fat.prorrogacoes, txPrPond) +
-      itemOpLimite('Redescontos', rd.real, rd.meta, volRd, fat.redesconto, txRdPond, 4) +
+      itemOpLimite('Prorrogações', pr.real, pr.meta, volPr, fat.prorrogacoes, txPrPond, 20) +
+      itemOpLimite('Redescontos', rd.real, rd.meta, volRd, fat.redesconto, txRdPond) +
       itemOpTotal(op.real,pr.real,rd.real, op.meta, volOp,volPr,volRd, fat.operacoes+fat.prorrogacoes+fat.redesconto, txTotalPond) +
     '</div></div>' +
 
@@ -1942,14 +1955,15 @@ var CAMPOS_FORM = [
   {tipo:'unico', chave:'fat_recuperacao_tarifas', label:'Faturamento — Recuperação de Tarifas', secao:'Faturamento', formato:'money'},
   {tipo:'unico', chave:'faturamento_descontos', label:'Faturamento — Descontos (negativo)', secao:'Faturamento', formato:'money'},
   {tipo:'par', chave:'despesa', label:'Despesa', secao:'Faturamento', formato:'money'},
-  {tipo:'unico', chave:'receitas_realizado', label:'Receita — Deságio', secao:'Faturamento', formato:'money'},
-  {tipo:'unico', chave:'receita_prorrogacao', label:'Receita — Prorrogação', secao:'Faturamento', formato:'money'},
-  {tipo:'unico', chave:'receita_redesconto', label:'Receita — Redesconto', secao:'Faturamento', formato:'money'},
-  {tipo:'unico', chave:'receita_multas', label:'Receita — Multas', secao:'Faturamento', formato:'money'},
-  {tipo:'unico', chave:'receitas_juros_atraso', label:'Receita — Juros de Atraso', secao:'Faturamento', formato:'money'},
-  {tipo:'unico', chave:'receita_iof', label:'Receitas — IOF', secao:'Faturamento', formato:'money'},
-  {tipo:'unico', chave:'outras_receitas', label:'Outras Receitas (Refinanciamento + Recup. Tarifas)', secao:'Faturamento', formato:'money'},
-  {tipo:'unico', chave:'descontos_de_receitas', label:'Descontos de Receitas (negativo)', secao:'Faturamento', formato:'money'},
+  {tipo:'unico', chave:'receitas_realizado', label:'Receita — Deságio', secao:'Receitas', formato:'money'},
+  {tipo:'unico', chave:'receita_prorrogacao', label:'Receita — Prorrogação', secao:'Receitas', formato:'money'},
+  {tipo:'unico', chave:'receita_redesconto', label:'Receita — Redesconto', secao:'Receitas', formato:'money'},
+  {tipo:'unico', chave:'receita_multas', label:'Receita — Multas', secao:'Receitas', formato:'money'},
+  {tipo:'unico', chave:'receitas_juros_atraso', label:'Receita — Juros de Atraso', secao:'Receitas', formato:'money'},
+  {tipo:'unico', chave:'receita_iof', label:'Receita — IOF', secao:'Receitas', formato:'money'},
+  {tipo:'unico', chave:'receita_recuperacao_tarifas', label:'Receita — Recuperação de Tarifas', secao:'Receitas', formato:'money'},
+  {tipo:'unico', chave:'outras_receitas', label:'Outras Receitas (financeiras/rendimentos bancários)', secao:'Receitas', formato:'money'},
+  {tipo:'unico', chave:'descontos_de_receitas', label:'Descontos de Receitas (negativo)', secao:'Receitas', formato:'money'},
   {tipo:'unico', chave:'resultado_meta', label:'Resultado do mês — Meta', secao:'Faturamento', formato:'money'},
 
   // TAXA
@@ -2035,27 +2049,47 @@ function campoInputHtml(chave, labelTxt, formato, cor){
 }
 
 function montarFormularioLancar(){
-  var secoes={}; var ordemSecoes=[];
-  CAMPOS_FORM.forEach(function(c){
-    if(!secoes[c.secao]){ secoes[c.secao]=[]; ordemSecoes.push(c.secao); }
-    secoes[c.secao].push(c);
-  });
-
-  var html='';
-  ordemSecoes.forEach(function(nomeSecao){
-    html+='<div class="mo-sec"><h3>'+nomeSecao+'</h3><div class="mo-grid-flex">';
-    secoes[nomeSecao].forEach(function(c){
-      if(c.tipo==='par'){
-        html+=campoInputHtml(c.chave+'_meta', c.label+' — Meta', c.formato, COR_META);
-        html+=campoInputHtml(c.chave+'_realizado', c.label+' — Realizado', c.formato, COR_REALIZADO);
-      } else {
-        var cor = /_meta$/.test(c.chave) ? COR_META : COR_REALIZADO;
-        html+=campoInputHtml(c.chave, c.label, c.formato, cor);
-      }
+  // Separa cada campo pra aba Meta ou Realizado, usando a mesma regra que
+  // já existia pra colorir os campos (termina em "_meta" = é meta).
+  // Campos do tipo 'par' viram um campo em cada aba (meta numa, realizado na outra).
+  function montarAba(ehMeta){
+    var secoes={}; var ordemSecoes=[];
+    CAMPOS_FORM.forEach(function(c){
+      if(!secoes[c.secao]){ secoes[c.secao]=[]; ordemSecoes.push(c.secao); }
+      secoes[c.secao].push(c);
     });
-    html+='</div></div>';
-  });
-  document.getElementById('mo-form').innerHTML=html;
+    var html='';
+    ordemSecoes.forEach(function(nomeSecao){
+      var camposDaAba=[];
+      secoes[nomeSecao].forEach(function(c){
+        if(c.tipo==='par'){
+          if(ehMeta) camposDaAba.push({chave:c.chave+'_meta', label:c.label+' — Meta', formato:c.formato});
+          else camposDaAba.push({chave:c.chave+'_realizado', label:c.label+' — Realizado', formato:c.formato});
+        } else {
+          var campoEhMeta = /_meta$/.test(c.chave);
+          if(campoEhMeta===ehMeta) camposDaAba.push(c);
+        }
+      });
+      if(!camposDaAba.length) return; // seção sem nenhum campo nessa aba, pula
+      html+='<div class="mo-sec"><h3>'+nomeSecao+'</h3><div class="mo-grid-flex">';
+      camposDaAba.forEach(function(c){
+        var cor = ehMeta ? COR_META : COR_REALIZADO;
+        html+=campoInputHtml(c.chave, c.label, c.formato, cor);
+      });
+      html+='</div></div>';
+    });
+    return html;
+  }
+  document.getElementById('mo-form-realizado').innerHTML = montarAba(false);
+  document.getElementById('mo-form-meta').innerHTML = montarAba(true);
+}
+
+function mostrarAbaLancar(aba){
+  var ehMeta = aba==='meta';
+  document.getElementById('mo-form-meta').style.display = ehMeta?'block':'none';
+  document.getElementById('mo-form-realizado').style.display = ehMeta?'none':'block';
+  document.getElementById('mo-aba-meta').classList.toggle('mo-aba-ativa', ehMeta);
+  document.getElementById('mo-aba-realizado').classList.toggle('mo-aba-ativa', !ehMeta);
 }
 
 function abrirModalLancar(){
@@ -2067,6 +2101,7 @@ function abrirModalLancar(){
   mxrPopularEmpresasModal();
   montarFormularioLancar();
   mxrRecarregarValoresNoForm();
+  mostrarAbaLancar('realizado');
   document.getElementById('mo-msg').style.display='none';
   document.getElementById('mo-msg').className='mo-msg';
   document.getElementById('mo-overlay').style.display='block';
