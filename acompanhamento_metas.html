@@ -93,6 +93,12 @@ h1,h2,h3,.kl,.fl,.mo-sec h3,.mo-head h2,.kcard-h,.tp-chart-card h3,.mi-l{font-fa
 .mi-l{font-size:13px;color:var(--t1);font-weight:600}
 .mi-badge{font-size:12px;font-weight:700;font-family:var(--num);padding:2px 10px;border-radius:20px;border:1px solid;white-space:nowrap}
 .mi-badge.g{color:#1d7a5c;background:#e4f3ea;border-color:#a8d8bf}
+.toggle-sw{position:relative;display:inline-block;width:28px;height:15px;flex-shrink:0;vertical-align:middle}
+.toggle-sw input{opacity:0;width:0;height:0;position:absolute}
+.toggle-sw .slider{position:absolute;cursor:pointer;inset:0;background:var(--bd);border-radius:16px;transition:.2s}
+.toggle-sw .slider:before{content:'';position:absolute;height:11px;width:11px;left:2px;top:2px;background:#fff;border-radius:50%;transition:.2s;box-shadow:0 1px 2px rgba(0,0,0,.25)}
+.toggle-sw input:checked + .slider{background:var(--br)}
+.toggle-sw input:checked + .slider:before{transform:translateX(13px)}
 .mi-badge.y{color:#9c6a12;background:#faf0dd;border-color:#dcb35f}
 .mi-badge.r{color:#93372f;background:#fbe9e6;border-color:#e3b3ac}
 .bar-w{height:9px;background:var(--bg);border-radius:99px;overflow:hidden;margin-bottom:6px}
@@ -274,6 +280,23 @@ h1,h2,h3,.kl,.fl,.mo-sec h3,.mo-head h2,.kcard-h,.tp-chart-card h3,.mi-l{font-fa
     <div style="height:320px"><canvas id="csg-c-evolucao"></canvas></div>
     <div id="csg-legenda" class="tp-legenda-evol" style="justify-content:center"></div>
     <div id="csg-vazio" class="empty" style="display:none">Nenhum lançamento encontrado na aba investidor ainda.</div>
+  </div>
+</div>
+
+<!-- ══ MODAL GRÁFICO DO FATURAMENTO ══ -->
+<div id="fatg-overlay" class="mo-overlay">
+  <div class="mo-box" style="max-width:900px">
+    <div class="mo-head">
+      <div>
+        <h2>Composição do Faturamento</h2>
+        <p id="fatg-subtitulo">Sem categoria selecionada: mostra a composição do período filtrado. Selecione uma ou mais categorias para comparar mês a mês.</p>
+      </div>
+      <button class="mo-close" onclick="closeFaturamentoGrafico()">&times;</button>
+    </div>
+    <div id="fatg-chips" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:14px"></div>
+    <div style="height:320px"><canvas id="fatg-canvas"></canvas></div>
+    <div id="fatg-legenda" class="tp-legenda-evol" style="justify-content:center;flex-wrap:wrap"></div>
+    <div id="fatg-vazio" class="empty" style="display:none">Sem dados para exibir.</div>
   </div>
 </div>
 
@@ -897,7 +920,7 @@ function itemFaturamentoPrincipal(real, meta, fatOp, fatPr, fatRd, fatRf, fatMu,
     badgeLinha('IOF', fatIof, '#fdf3e3', '#e0c07a', '#8a6416')+
     badgeLinha('RECUP. TARIFAS', fatRt, '#e0f7fa', '#80deea', '#00838f')+
     badgeLinha('DESCONTOS', fatDe, '#eef2f5', '#c3ccd3', '#57697a');
-  return '<div class="mi" style="padding-bottom:6px;margin-bottom:7px"><div class="mi-h"><span class="mi-l">Faturamento</span>'+(meta>0?'<span class="mi-badge '+cls+'">'+pctReal+'%'+(pctReal>=100?' ✓':'')+'</span>':'')+'</div>'+
+  return '<div class="mi" style="padding-bottom:6px;margin-bottom:7px"><div class="mi-h"><span class="mi-l">Faturamento'+fatEyeBtnHtml()+'</span>'+(meta>0?'<span class="mi-badge '+cls+'">'+pctReal+'%'+(pctReal>=100?' ✓':'')+'</span>':'')+'</div>'+
     (meta>0?'<div class="bar-w"><div class="bar" style="width:'+pct+'%;background:'+barColor(cls)+'"></div></div>':'')+
     '<div class="mi-v"><span><span class="real">'+fM(real)+'</span>'+(meta>0?'<span class="sep">de</span>'+fM(meta):'')+'</span>'+(meta>0?'<span>'+faltaTxt+'</span>':'')+'</div>'+
     '<div style="display:grid;grid-template-columns:1fr 1fr;gap:0 10px;margin-top:5px">'+
@@ -1045,10 +1068,16 @@ function itemResultado(real, meta){
   }
   var falta=meta-real;
   var faltaTxt = meta>0 ? (falta>0?('Falta: '+fM(falta)):'✓ Meta atingida!') : '';
+  var tooltipRegime = 'Regime de Caixa: considera o dinheiro que efetivamente entrou (Receitas) menos o que saiu (Despesas) no mês. Regime de Competência: considera o Faturamento gerado no mês menos as Despesas, independente de quando o dinheiro se movimenta.';
+  var linhaRegime = '<div style="display:flex;align-items:center;gap:6px;margin-top:3px;height:15px" title="'+tooltipRegime+'">'+
+    '<span style="font-size:9px;color:var(--t3);cursor:help;text-decoration:underline dotted">Competência</span>'+
+    '<label class="toggle-sw" onclick="event.stopPropagation()"><input type="checkbox" id="chk-regime-caixa" '+(regimeCaixa?'checked':'')+' onchange="regimeCaixa=this.checked;renderKPIs(mxrFilt)"><span class="slider"></span></label>'+
+    '<span style="font-size:9px;color:var(--t3);cursor:help;text-decoration:underline dotted">Caixa</span>'+
+  '</div>';
   return '<div class="mi"><div class="mi-h"><span class="mi-l">Resultado do mês</span><span class="mi-badge '+cls+'">'+badgeTxt+'</span></div>'+
     (meta>0?'<div class="bar-w"><div class="bar" style="width:'+pct+'%;background:'+barColor(cls)+'"></div></div>':'')+
     '<div class="mi-v"><span><span class="real" style="color:'+(real<0?'#c0392b':'#1d9e75')+'">'+fM(real)+'</span>'+(meta>0?'<span class="sep">meta</span>'+fM(meta):'')+'</span>'+(meta>0?'<span>'+faltaTxt+'</span>':'')+'</div>'+
-    '<div style="font-size:12px;margin-top:2px;visibility:hidden;height:13px;line-height:13px">.</div>'+
+    linhaRegime+
     '<div style="font-size:12px;margin-top:2px;visibility:hidden;height:13px;line-height:13px">.</div>'+
     '<div style="font-size:12px;margin-top:2px;visibility:hidden;height:13px;line-height:13px">.</div>'+
     '<div style="font-size:12px;margin-top:2px;visibility:hidden;height:13px;line-height:13px">.</div></div>';
@@ -1130,6 +1159,7 @@ function itemOpTotal(rOp,rPr,rRd,mOp,vOp,vPr,vRd,fatTotal,taxaTotal){
 /* ── RENDER KPIs ── */
 var somarCedentes = false;
 var somarNovosCedentes = false;
+var regimeCaixa = true; // true = Regime de Caixa (padrão, comportamento atual). false = Regime de Competência.
 
 function renderKPIs(d){
   if(!d.length){
@@ -1137,6 +1167,7 @@ function renderKPIs(d){
     return;
   }
   var fat=somaFaturamento(d), desp=somaPar(d,'despesa');
+  FAT_ATUAL = fat; // usado pelo modal "Composição do Faturamento" (visão padrão, sem categoria selecionada)
   var recLiquidada=somaCampo(d,'receitas_realizado'); // agora representa "Receita — Deságio"
   var recIofTotal=somaCampo(d,'receita_iof');
   var recProrrogacao=somaCampo(d,'receita_prorrogacao');
@@ -1267,7 +1298,9 @@ function renderKPIs(d){
   // Regra nova: a meta de Receitas é sempre a meta de Despesa + a meta de Resultado do mês
   // (não existe mais coluna própria de meta de receita na planilha).
   var recMeta = desp.meta + resultadoMetaSoma;
-  var resultadoReal = recReal - desp.real;
+  // Regime de Caixa (padrão/atual): Receitas líquidas - Despesas.
+  // Regime de Competência: Faturamento gerado no mês - Despesas.
+  var resultadoReal = regimeCaixa ? (recReal - desp.real) : (fat.total - desp.real);
   var margemPct = fat.total>0 ? (resultadoReal/fat.total*100) : 0;
 
   var chkCed = checkboxSomar('chk-somar-ced', 'Somar as duas empresas', somarCedentes, "somarCedentes=this.checked;renderKPIs(mxrFilt)");
@@ -1341,6 +1374,11 @@ var TP_PALETA = ['#2CA1D8','#1d9e75','#e0a020','#c0392b','#8e44ad','#16a085','#e
 function tpCor(i){ return TP_PALETA[i % TP_PALETA.length]; }
 
 // Só mostra o olho para quem tem a permissão (coluna G da aba Usuarios).
+// Botão de olho do card Faturamento — abre o gráfico de composição/evolução.
+function fatEyeBtnHtml(){
+  return '<button onclick="event.stopPropagation();openFaturamentoGrafico()" title="Ver gráfico do faturamento" style="background:none;border:none;cursor:pointer;padding:0;margin-left:6px;vertical-align:middle;color:#8fa5bb;display:inline-flex;align-items:center"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg></button>';
+}
+
 function tpEyeBtnHtml(){
   var s=getSession();
   if(!s || !s.acessaDespesas) return '';
@@ -1358,6 +1396,151 @@ function csgEyeBtnHtml(){
    (getInvestidores) e a mesma permissão (acessaInvestidores) que já
    protegem essa informação na tela de Movimentação.
 ═══════════════════════════════════════════════════════════ */
+/* ═══════════════════════════════════════════════════════════
+   MODAL "COMPOSIÇÃO DO FATURAMENTO" — sem categoria selecionada,
+   mostra a composição (pizza) do período filtrado na tela. Com uma ou
+   mais categorias selecionadas, mostra a evolução mês a mês dessas
+   categorias (respeitando a empresa selecionada no filtro principal,
+   mas ignorando o filtro de mês/ano — pra dar pra comparar ao longo
+   do tempo).
+═══════════════════════════════════════════════════════════ */
+var FAT_ATUAL = null;
+var FATG_SEL = {}; // categorias marcadas (chave -> true)
+var FATG_CHART = null;
+var FATG_CATEGORIAS = [
+  {chave:'operacoes', label:'Deságio', cor:'#1d7a5c'},
+  {chave:'prorrogacoes', label:'Prorrogações', cor:'#00695c'},
+  {chave:'redesconto', label:'Redesconto', cor:'#303f9f'},
+  {chave:'refinanciamento', label:'Refinanciamento', cor:'#1a6f8f'},
+  {chave:'multas', label:'Multas', cor:'#8e44ad'},
+  {chave:'juros_atraso', label:'Juros Atraso', cor:'#a32d2d'},
+  {chave:'iof', label:'IOF', cor:'#8a6416'},
+  {chave:'recuperacao_tarifas', label:'Recup. Tarifas', cor:'#00838f'},
+  {chave:'descontos', label:'Descontos', cor:'#57697a'}
+];
+
+function openFaturamentoGrafico(){
+  FATG_SEL = {};
+  document.getElementById('fatg-overlay').style.display='block';
+  fatgRenderChips();
+  fatgRender();
+}
+function closeFaturamentoGrafico(){ document.getElementById('fatg-overlay').style.display='none'; }
+
+function fatgRenderChips(){
+  var box=document.getElementById('fatg-chips');
+  box.innerHTML = FATG_CATEGORIAS.map(function(c){
+    var ativo = !!FATG_SEL[c.chave];
+    return '<button type="button" onclick="fatgToggleCategoria(\''+c.chave+'\')" style="font-size:11px;font-weight:700;padding:5px 12px;border-radius:20px;cursor:pointer;background:'+(ativo?c.cor:'var(--bg)')+';color:'+(ativo?'#fff':'var(--t2)')+';border:1px solid '+(ativo?c.cor:'var(--bd)')+'">'+c.label+'</button>';
+  }).join('');
+}
+function fatgToggleCategoria(chave){
+  if(FATG_SEL[chave]) delete FATG_SEL[chave];
+  else FATG_SEL[chave]=true;
+  fatgRenderChips();
+  fatgRender();
+}
+
+function fatgRender(){
+  var selecionadas = FATG_CATEGORIAS.filter(function(c){ return FATG_SEL[c.chave]; });
+  if(selecionadas.length===0) fatgRenderComposicao();
+  else fatgRenderEvolucaoMensal(selecionadas);
+}
+
+// Sem categoria selecionada: pizza com a composição do período filtrado na tela.
+function fatgRenderComposicao(){
+  document.getElementById('fatg-subtitulo').textContent = 'Composição do período filtrado na tela (sem categoria selecionada).';
+  document.getElementById('fatg-legenda').innerHTML='';
+  if(!FAT_ATUAL || typeof Chart==='undefined'){
+    document.getElementById('fatg-vazio').style.display='block';
+    if(FATG_CHART){ FATG_CHART.destroy(); FATG_CHART=null; }
+    return;
+  }
+  var labels=[], valores=[], cores=[];
+  FATG_CATEGORIAS.forEach(function(c){
+    var v = n(FAT_ATUAL[c.chave]);
+    if(v!==0){ labels.push(c.label); valores.push(Math.abs(v)); cores.push(c.cor); }
+  });
+  if(!valores.length){
+    document.getElementById('fatg-vazio').style.display='block';
+    if(FATG_CHART){ FATG_CHART.destroy(); FATG_CHART=null; }
+    return;
+  }
+  document.getElementById('fatg-vazio').style.display='none';
+  if(FATG_CHART) FATG_CHART.destroy();
+  FATG_CHART = new Chart(document.getElementById('fatg-canvas'), {
+    type:'doughnut',
+    data:{ labels:labels, datasets:[{ data:valores, backgroundColor:cores, borderWidth:0 }] },
+    options:{
+      responsive:true, maintainAspectRatio:false,
+      plugins:{
+        legend:{ position:'right', labels:{ color: dark?'#8fa088':'#5b6b5c', font:{size:11} } },
+        tooltip:{ callbacks:{ label:function(ctx){ return ' '+ctx.label+': '+fM(ctx.raw); } } }
+      }
+    }
+  });
+}
+
+// Com uma ou mais categorias selecionadas: evolução mês a mês, respeitando
+// a empresa do filtro principal (mas ignorando mês/ano, pra comparar no tempo).
+function fatgRenderEvolucaoMensal(selecionadas){
+  document.getElementById('fatg-subtitulo').textContent = 'Evolução mês a mês da(s) categoria(s) selecionada(s).';
+  var empresasAtivas = Object.keys(sE);
+  var base = empresasAtivas.length ? mxrData.filter(function(r){ return empresasAtivas.indexOf(r.empresa)>=0; }) : mxrData;
+
+  var porMes = {}; // "AAAA-MM" -> {chave: soma}
+  base.forEach(function(r){
+    var idxMes = MESES_PT.indexOf(String(r.mes||'').toLowerCase());
+    if(idxMes<0 || !r.ano) return;
+    var chave = r.ano+'-'+String(idxMes+1).padStart(2,'0');
+    if(!porMes[chave]) porMes[chave]={};
+    selecionadas.forEach(function(c){
+      porMes[chave][c.chave] = (porMes[chave][c.chave]||0) + n(r.faturamento ? r.faturamento[c.chave] : 0);
+    });
+  });
+
+  var chavesOrdenadas = Object.keys(porMes).sort();
+  if(!chavesOrdenadas.length || typeof Chart==='undefined'){
+    document.getElementById('fatg-vazio').style.display='block';
+    document.getElementById('fatg-legenda').innerHTML='';
+    if(FATG_CHART){ FATG_CHART.destroy(); FATG_CHART=null; }
+    return;
+  }
+  document.getElementById('fatg-vazio').style.display='none';
+
+  var labels = chavesOrdenadas.map(function(k){
+    var p=k.split('-'); return MABR[parseInt(p[1])-1]+'/'+p[0].substring(2);
+  });
+  var datasets = selecionadas.map(function(c){
+    return {
+      label: c.label,
+      data: chavesOrdenadas.map(function(k){ return porMes[k][c.chave]||0; }),
+      backgroundColor: c.cor,
+      borderRadius: 4
+    };
+  });
+
+  var tc = dark?'#8fa088':'#5b6b5c';
+  var gc = dark?'rgba(255,255,255,.07)':'rgba(0,0,0,.06)';
+  if(FATG_CHART) FATG_CHART.destroy();
+  FATG_CHART = new Chart(document.getElementById('fatg-canvas'), {
+    type:'bar',
+    data:{ labels:labels, datasets:datasets },
+    options:{
+      responsive:true, maintainAspectRatio:false,
+      plugins:{
+        legend:{ display: selecionadas.length>1, position:'top', labels:{ color:tc, font:{size:11} } },
+        tooltip:{ callbacks:{ label:function(ctx){ return ' '+ctx.dataset.label+': '+fM(ctx.raw); } } }
+      },
+      scales:{
+        x:{ ticks:{ color:tc, font:{size:10} }, grid:{ color:gc } },
+        y:{ ticks:{ color:tc, font:{size:10}, callback:function(v){ return fM(v); } }, grid:{ color:gc } }
+      }
+    }
+  });
+  document.getElementById('fatg-legenda').innerHTML='';
+}
+
 var INVP_DATA = null; // cache: null = ainda não carregado
 var INVP_SORT = {campo:'data_aporte', dir:'asc'};
 
