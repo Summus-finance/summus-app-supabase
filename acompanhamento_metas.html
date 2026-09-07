@@ -1254,7 +1254,15 @@ function renderKPIs(d){
   // Taxa Média Ponderada Total: média SIMPLES entre a taxa das Operações e a
   // taxa das Prorrogações (cada uma já vem ponderada por volume dentro da sua
   // própria categoria) — não pondera mais pelo volume entre as duas categorias.
-  var txTotalPond = (txOpPond+txPrPond)/2;
+  // Se uma das duas taxas estiver zerada (sem operação naquele período),
+  // não faz sentido diluir a média com um zero — o total fica igual à
+  // taxa que realmente tem movimento. Só faz a média de verdade quando
+  // as duas têm valor.
+  var txTotalPond;
+  if(txOpPond===0 && txPrPond===0) txTotalPond = 0;
+  else if(txOpPond===0) txTotalPond = txPrPond;
+  else if(txPrPond===0) txTotalPond = txOpPond;
+  else txTotalPond = (txOpPond+txPrPond)/2;
 
   // Regra nova: a meta de Receitas é sempre a meta de Despesa + a meta de Resultado do mês
   // (não existe mais coluna própria de meta de receita na planilha).
