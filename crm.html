@@ -123,6 +123,13 @@ h1,h2,h3{font-family:var(--disp)}
       <h2 id="card-titulo-modal">Novo card</h2>
       <button class="mo-close" onclick="fecharModalCard()">&times;</button>
     </div>
+    <div id="card-historico-wrap" style="display:none;margin-bottom:14px">
+      <button type="button" onclick="toggleHistoricoCard()" style="background:none;border:none;color:var(--t2);font-size:12px;cursor:pointer;padding:0;display:flex;align-items:center;gap:5px;font-family:inherit">
+        <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+        <span id="card-historico-toggle-txt">Ver histórico de movimentação</span>
+      </button>
+      <div id="card-historico-lista" style="display:none;margin-top:8px;max-height:150px;overflow-y:auto;background:var(--bg);border:1px solid var(--bd);border-radius:8px;padding:10px 12px;font-size:12px;color:var(--t1)"></div>
+    </div>
     <div class="mo-f"><label>Empresa / Lead</label><input id="cd-titulo" type="text" placeholder="Nome da empresa"></div>
     <div class="mo-grid">
       <div class="mo-f"><label>Contato</label><input id="cd-contato-nome" type="text" placeholder="Nome"></div>
@@ -226,6 +233,12 @@ var CARD_ARRASTANDO = null;
 var COLUNA_ARRASTANDO = null;
 
 function fmtR(v){ if(v===null||v===undefined||v==='') return ''; return 'R$ '+Number(v).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2}); }
+function fmtDataHora(iso){
+  if(!iso) return '—';
+  var d = new Date(iso);
+  if(isNaN(d)) return '—';
+  return d.toLocaleDateString('pt-BR')+' às '+d.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});
+}
 
 /* ── MÁSCARAS DE INPUT ── */
 // Formata o campo enquanto a pessoa digita (ex: 123456 -> 1.234,56).
@@ -311,6 +324,7 @@ function renderCard(card){
   if(card.contato_nome) h += '<div class="card-info">✉️ '+esc(card.contato_nome)+'</div>';
   if(card.municipio || card.uf) h += '<div class="card-info">📍 '+esc([card.municipio, card.uf].filter(Boolean).join(' - '))+'</div>';
   if(card.valor_estimado) h += '<div class="card-valor">'+fmtR(card.valor_estimado)+'</div>';
+  if(card.criado_por_nome || card.criado_em) h += '<div style="font-size:9px;color:var(--t3);margin-top:6px;padding-top:5px;border-top:1px solid var(--bd)">Criado por '+esc(card.criado_por_nome||'—')+' em '+fmtDataHora(card.criado_em)+'</div>';
   h += '</div>';
   return h;
 }
@@ -364,6 +378,8 @@ function onDropColuna(ev, colunaId){
   if(!CARD_ARRASTANDO) return;
   var card = cards.find(function(c){ return c.id === CARD_ARRASTANDO; });
   if(!card) return;
+  var colunaOrigemId = card.coluna_id;
+  var mudouDeColuna = colunaOrigemId !== colunaId;
   var novaOrdem = cards.filter(function(c){ return c.coluna_id === colunaId; }).length;
   card.coluna_id = colunaId;
   card.ordem = novaOrdem;
@@ -371,6 +387,20 @@ function onDropColuna(ev, colunaId){
   sb.from('crm_cards').update({ coluna_id: colunaId, ordem: novaOrdem, atualizado_em: new Date().toISOString() }).eq('id', CARD_ARRASTANDO).then(function(res){
     if(res.error){
       document.getElementById('errdiv').innerHTML = '<div class="err">Erro ao mover o card: '+res.error.message+' (a tela já foi atualizada, mas pode não ter salvo — recarregue pra conferir)</div>';
+      return;
+    }
+    // Só registra no histórico quando realmente mudou de coluna (soltar
+    // no mesmo lugar não conta como movimentação).
+    if(mudouDeColuna){
+      var colOrigem = colunas.find(function(c){ return c.id === colunaOrigemId; });
+      var colDestino = colunas.find(function(c){ return c.id === colunaId; });
+      sb.from('crm_historico').insert({
+        card_id: CARD_ARRASTANDO,
+        usuario_id: perfilAtual ? perfilAtual.id : null,
+        usuario_nome: perfilAtual ? perfilAtual.nome_usuario : null,
+        coluna_origem: colOrigem ? colOrigem.nome : '—',
+        coluna_destino: colDestino ? colDestino.nome : '—'
+      }).then(function(){}); // não precisa fazer nada com o resultado; é um registro auxiliar
     }
   });
 }
@@ -385,6 +415,39 @@ function onColDragEnd(ev){
 }
 
 /* ── MODAL CARD ── */
+/* ── HISTÓRICO DE MOVIMENTAÇÃO ── */
+var HISTORICO_CARREGADO = false;
+function toggleHistoricoCard(){
+  var lista = document.getElementById('card-historico-lista');
+  var abrindo = lista.style.display === 'none';
+  lista.style.display = abrindo ? 'block' : 'none';
+  document.getElementById('card-historico-toggle-txt').textContent = abrindo ? 'Ocultar histórico de movimentação' : 'Ver histórico de movimentação';
+  if(abrindo && !HISTORICO_CARREGADO && CARD_EDITANDO){
+    carregarHistoricoCard(CARD_EDITANDO);
+  }
+}
+function carregarHistoricoCard(cardId){
+  var lista = document.getElementById('card-historico-lista');
+  lista.innerHTML = 'Carregando...';
+  sb.from('crm_historico').select('*').eq('card_id', cardId).order('criado_em', {ascending:false}).then(function(res){
+    HISTORICO_CARREGADO = true;
+    if(res.error){
+      lista.innerHTML = '<span style="color:#93372f">Erro ao carregar histórico: '+res.error.message+'</span>';
+      return;
+    }
+    if(!res.data || !res.data.length){
+      lista.innerHTML = '<span style="color:var(--t3)">Nenhuma movimentação registrada ainda — esse card ainda não foi arrastado entre colunas.</span>';
+      return;
+    }
+    lista.innerHTML = res.data.map(function(h){
+      return '<div style="padding:6px 0;border-bottom:1px solid var(--bd)">'+
+        '<b>'+fmtDataHora(h.criado_em)+'</b> — '+esc(h.usuario_nome||'alguém')+
+        ' moveu de <b>'+esc(h.coluna_origem||'—')+'</b> para <b>'+esc(h.coluna_destino||'—')+'</b>'+
+      '</div>';
+    }).join('');
+  });
+}
+
 function abrirModalCard(cardId, colunaId){
   CARD_EDITANDO = cardId;
   CARD_COLUNA_ALVO = colunaId;
@@ -404,6 +467,13 @@ function abrirModalCard(cardId, colunaId){
   document.getElementById('cd-notas').value = card ? (card.notas||'') : '';
   document.getElementById('card-excluir').style.display = card ? 'inline-flex' : 'none';
   document.getElementById('card-msg').style.display = 'none';
+
+  // Histórico só existe (e faz sentido mostrar) quando está editando um
+  // card que já existe — um card novo ainda não tem nenhuma movimentação.
+  document.getElementById('card-historico-wrap').style.display = card ? 'block' : 'none';
+  document.getElementById('card-historico-lista').style.display = 'none';
+  document.getElementById('card-historico-toggle-txt').textContent = 'Ver histórico de movimentação';
+  HISTORICO_CARREGADO = false;
 
   CARD_COR_SEL = card ? (card.etiqueta_cor||'') : '';
   var coresHtml = CORES_ETIQUETA.map(function(c){
@@ -451,6 +521,8 @@ function salvarCard(){
   } else {
     payload.coluna_id = CARD_COLUNA_ALVO;
     payload.ordem = cards.filter(function(c){ return c.coluna_id === CARD_COLUNA_ALVO; }).length;
+    payload.criado_por = perfilAtual ? perfilAtual.id : null;
+    payload.criado_por_nome = perfilAtual ? perfilAtual.nome_usuario : null;
     promessa = sb.from('crm_cards').insert(payload);
   }
 
