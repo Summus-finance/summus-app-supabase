@@ -100,6 +100,26 @@ h1,h2,h3{font-family:var(--disp)}
 .mo-msg.ok{display:block;background:#e4f3ea;color:#1d7a5c;border:1px solid #a8d8bf}
 .mo-msg.err{display:block;background:#fbe9e6;color:#93372f;border:1px solid #e3b3ac}
 @media(max-width:768px){.top{flex-direction:column;align-items:flex-start;gap:8px}}
+/* ══ IMPRESSÃO / PDF (Relatório) ══ */
+#print-header{margin-bottom:16px;padding-bottom:14px;border-bottom:2px solid var(--br)}
+#print-header h1{font-family:var(--disp);font-size:20px;color:var(--t1);margin-bottom:3px}
+#print-header p{font-size:12px;color:var(--t2)}
+#print-kpis{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:12px}
+#print-kpis div{border:1px solid var(--bd);border-radius:8px;padding:8px 10px}
+#print-kpis span{display:block;font-size:9px;font-weight:600;color:var(--t3);text-transform:uppercase;letter-spacing:.4px;margin-bottom:3px}
+#print-kpis b{font-size:15px;color:var(--t1);font-family:var(--num)}
+.rel-tabela{width:100%;border-collapse:collapse;font-size:12px}
+.rel-tabela th{background:var(--br);color:#fff;padding:7px 9px;text-align:left;font-family:var(--disp)}
+.rel-tabela td{padding:6px 9px;border-bottom:1px solid var(--bd)}
+.rel-tabela tr:nth-child(even){background:var(--bg)}
+@media print{
+  body{padding:0;background:#fff}
+  .top,.board,#relatorio-overlay,.mo-overlay{display:none!important}
+  #print-header,#print-tabela-wrap{display:block!important}
+  .rel-tabela{page-break-inside:auto}
+  .rel-tabela tr{page-break-inside:avoid}
+  .rel-tabela th{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+}
 </style>
 </head>
 <body>
@@ -111,6 +131,7 @@ h1,h2,h3{font-family:var(--disp)}
       <div><h1>CRM — Funil de Prospecção</h1><p>Clientes e cedentes em prospecção, por etapa</p></div>
     </div>
     <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+      <button class="tbtn" style="border:none;background:rgba(255,255,255,.12)" onclick="abrirModalRelatorio()"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9V2h12v7"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg> Relatório</button>
       <a href="painel.html" style="display:inline-flex;align-items:center;gap:6px;background:rgba(255,255,255,.18);border:1px solid rgba(255,255,255,.35);border-radius:8px;padding:7px 14px;font-size:13px;color:#fff;text-decoration:none;font-family:var(--body)"><svg viewBox="0 0 24 24" style="width:14px;height:14px;fill:none;stroke:#fff;stroke-width:2;stroke-linecap:round;stroke-linejoin:round"><polyline points="15 18 9 12 15 6"/></svg>Página Inicial</a>
     </div>
   </div>
@@ -118,6 +139,18 @@ h1,h2,h3{font-family:var(--disp)}
   <div id="errdiv"></div>
   <div class="board" id="board"></div>
 </div>
+
+<!-- Cabeçalho exclusivo do relatório impresso — some na tela, só aparece ao imprimir -->
+<div id="print-header" style="display:none">
+  <h1>Relatório de CRM — Funil de Prospecção</h1>
+  <p id="print-subtitulo"></p>
+  <div id="print-kpis">
+    <div><span>Cards no relatório</span><b id="print-k-qtd"></b></div>
+    <div><span>Valor estimado total</span><b id="print-k-valor"></b></div>
+    <div><span>Comissionamento total</span><b id="print-k-comissao"></b></div>
+  </div>
+</div>
+<div id="print-tabela-wrap" style="display:none"></div>
 
 <!-- ══ MODAL CARD (criar/editar) ══ -->
 <div id="card-overlay" class="mo-overlay">
@@ -167,6 +200,33 @@ h1,h2,h3{font-family:var(--disp)}
         <button class="btn sec" onclick="fecharModalCard()">Cancelar</button>
         <button class="btn" id="card-salvar" onclick="salvarCard()">Salvar</button>
       </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ MODAL RELATÓRIO ══ -->
+<div id="relatorio-overlay" class="mo-overlay">
+  <div class="mo-box" style="max-width:480px">
+    <div class="mo-head">
+      <div>
+        <h2>Gerar relatório</h2>
+        <p style="font-size:12px;color:var(--t3);margin-top:3px">Escolha os filtros e clique em Gerar — abre a tela de impressão, onde dá pra imprimir ou salvar como PDF.</p>
+      </div>
+      <button class="mo-close" onclick="fecharModalRelatorio()">&times;</button>
+    </div>
+    <div class="mo-f">
+      <label>Colunas (deixe todas marcadas pra incluir tudo)</label>
+      <div id="rel-colunas-chips" style="display:flex;flex-wrap:wrap;gap:6px"></div>
+    </div>
+    <div class="mo-f"><label>Responsável (opcional)</label><input id="rel-responsavel" type="text" placeholder="Nome do responsável"></div>
+    <div class="mo-f"><label>Buscar por empresa/lead ou contato (opcional)</label><input id="rel-busca" type="text" placeholder="Digite parte do nome"></div>
+    <div class="mo-f">
+      <label>Etiqueta (opcional)</label>
+      <div class="mo-cores" id="rel-cores"></div>
+    </div>
+    <div class="mo-foot" style="justify-content:flex-end">
+      <button class="btn sec" onclick="fecharModalRelatorio()">Cancelar</button>
+      <button class="btn" onclick="gerarRelatorio()">Gerar relatório</button>
     </div>
   </div>
 </div>
@@ -289,6 +349,7 @@ var CARD_COR_SEL = '';
 var CARD_ARRASTANDO = null;
 var COLUNA_ARRASTANDO = null;
 
+function n(v){ var x=parseFloat(v); return isNaN(x)?0:x; }
 function fmtR(v){ if(v===null||v===undefined||v==='') return ''; return 'R$ '+Number(v).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2}); }
 function fmtDataHora(iso){
   if(!iso) return '—';
@@ -374,7 +435,7 @@ function renderBoard(){
 }
 
 function renderCard(card){
-  var h = '<div class="card" draggable="true" data-card-id="'+card.id+'" ondragstart="onDragStartCard(event,'+card.id+')" ondragend="onDragEndCard(event)" onclick="abrirModalCard('+card.id+')">';
+  var h = '<div class="card" draggable="true" data-card-id="'+card.id+'" ondragstart="onDragStartCard(event,'+card.id+')" ondragend="onDragEndCard(event)" ontouchstart="onCardTouchStart(event,'+card.id+')" ontouchmove="onCardTouchMove(event)" ontouchend="onCardTouchEnd(event)" onclick="abrirModalCard('+card.id+')">';
   if(card.etiqueta_cor) h += '<div class="card-etq" style="background:'+card.etiqueta_cor+'"></div>';
   h += '<div class="card-titulo">'+esc(card.titulo)+'</div>';
   if(card.responsavel) h += '<div class="card-info">👤 '+esc(card.responsavel)+'</div>';
@@ -404,6 +465,58 @@ function onDragOverColuna(ev, colunaId){
 }
 function onDragLeaveColuna(ev){
   ev.currentTarget.classList.remove('drag-over');
+}
+
+/* ── ARRASTAR POR TOQUE (celular/tablet) — o "arrastar e soltar" padrão do
+   navegador (usado acima) só funciona com mouse. Essa parte reproduz o
+   mesmo comportamento pra quem usa o dedo, sem mexer em nada do que já
+   funciona no computador. ── */
+var TOQUE = { cardId:null, elem:null, startX:0, startY:0, arrastando:false };
+
+function onCardTouchStart(ev, cardId){
+  if(ev.touches.length !== 1) return;
+  var t = ev.touches[0];
+  TOQUE.cardId = cardId;
+  TOQUE.elem = ev.currentTarget;
+  TOQUE.startX = t.clientX;
+  TOQUE.startY = t.clientY;
+  TOQUE.arrastando = false;
+}
+function onCardTouchMove(ev){
+  if(!TOQUE.cardId) return;
+  var t = ev.touches[0];
+  var dx = t.clientX - TOQUE.startX;
+  var dy = t.clientY - TOQUE.startY;
+  if(!TOQUE.arrastando){
+    // Só considera que "começou a arrastar de verdade" depois de mover uns
+    // pixels — assim um toque rápido (pra abrir o card) continua funcionando
+    // normalmente, e rolar a tela com o dedo também não é confundido com arrasto.
+    if(Math.abs(dx) < 12 && Math.abs(dy) < 12) return;
+    TOQUE.arrastando = true;
+    TOQUE.elem.classList.add('dragging');
+  }
+  ev.preventDefault(); // já confirmou que é arrasto: impede a página rolar junto
+  document.querySelectorAll('.coluna.drag-over').forEach(function(el){ el.classList.remove('drag-over'); });
+  var elAlvo = document.elementFromPoint(t.clientX, t.clientY);
+  var colunaAlvo = elAlvo ? elAlvo.closest('.coluna') : null;
+  if(colunaAlvo) colunaAlvo.classList.add('drag-over');
+}
+function onCardTouchEnd(ev){
+  if(!TOQUE.cardId) return;
+  if(TOQUE.elem) TOQUE.elem.classList.remove('dragging');
+  document.querySelectorAll('.coluna.drag-over').forEach(function(el){ el.classList.remove('drag-over'); });
+  if(TOQUE.arrastando){
+    var t = ev.changedTouches[0];
+    var elAlvo = document.elementFromPoint(t.clientX, t.clientY);
+    var colunaAlvo = elAlvo ? elAlvo.closest('.coluna') : null;
+    if(colunaAlvo){
+      var colunaId = parseInt(colunaAlvo.dataset.colunaId, 10);
+      moverCardParaColuna(TOQUE.cardId, colunaId);
+    }
+  }
+  TOQUE.cardId = null;
+  TOQUE.elem = null;
+  TOQUE.arrastando = false;
 }
 function onDropColuna(ev, colunaId){
   ev.preventDefault();
@@ -435,10 +548,17 @@ function onDropColuna(ev, colunaId){
   if(!CARD_ARRASTANDO) return;
   var cardIdMovido = CARD_ARRASTANDO; // guarda numa variável local: o "ondragend" zera a global
                                         // quase junto, antes do .then() abaixo rodar.
+  moverCardParaColuna(cardIdMovido, colunaId);
+}
+
+// Move um card pra outra coluna e registra no histórico — usada tanto pelo
+// arrastar com mouse (computador) quanto pelo arrastar por toque (celular/tablet).
+function moverCardParaColuna(cardIdMovido, colunaId){
   var card = cards.find(function(c){ return c.id === cardIdMovido; });
   if(!card) return;
   var colunaOrigemId = card.coluna_id;
   var mudouDeColuna = colunaOrigemId !== colunaId;
+  if(!mudouDeColuna) return; // soltou no mesmo lugar, não faz nada
   var novaOrdem = cards.filter(function(c){ return c.coluna_id === colunaId; }).length;
   card.coluna_id = colunaId;
   card.ordem = novaOrdem;
@@ -448,15 +568,11 @@ function onDropColuna(ev, colunaId){
       document.getElementById('errdiv').innerHTML = '<div class="err">Erro ao mover o card: '+res.error.message+' (a tela já foi atualizada, mas pode não ter salvo — recarregue pra conferir)</div>';
       return;
     }
-    // Só registra no histórico quando realmente mudou de coluna (soltar
-    // no mesmo lugar não conta como movimentação).
-    if(mudouDeColuna){
-      var colOrigem = colunas.find(function(c){ return c.id === colunaOrigemId; });
-      var colDestino = colunas.find(function(c){ return c.id === colunaId; });
-      registrarHistoricoCrm(cardIdMovido, 'movimentacao',
-        'Moveu de "'+(colOrigem?colOrigem.nome:'—')+'" para "'+(colDestino?colDestino.nome:'—')+'"',
-        colOrigem?colOrigem.nome:null, colDestino?colDestino.nome:null);
-    }
+    var colOrigem = colunas.find(function(c){ return c.id === colunaOrigemId; });
+    var colDestino = colunas.find(function(c){ return c.id === colunaId; });
+    registrarHistoricoCrm(cardIdMovido, 'movimentacao',
+      'Moveu de "'+(colOrigem?colOrigem.nome:'—')+'" para "'+(colDestino?colDestino.nome:'—')+'"',
+      colOrigem?colOrigem.nome:null, colDestino?colDestino.nome:null);
   });
 }
 
@@ -621,6 +737,97 @@ function excluirCard(){
 }
 
 /* ── MODAL COLUNA ── */
+/* ── RELATÓRIO (filtros + impressão/PDF) ── */
+var REL_COLUNAS_SEL = {}; // colunas marcadas nos filtros (id -> true)
+var REL_COR_SEL = '';
+
+function abrirModalRelatorio(){
+  var box = document.getElementById('rel-colunas-chips');
+  REL_COLUNAS_SEL = {};
+  colunas.forEach(function(c){ REL_COLUNAS_SEL[c.id] = true; }); // começa com tudo marcado
+  box.innerHTML = colunas.map(function(c){
+    return '<button type="button" onclick="relToggleColuna('+c.id+')" data-col="'+c.id+'" style="font-size:11px;font-weight:700;padding:5px 12px;border-radius:20px;cursor:pointer;background:'+c.cor+';color:#fff;border:1px solid '+c.cor+'">'+esc(c.nome)+'</button>';
+  }).join('');
+  document.getElementById('rel-responsavel').value = '';
+  document.getElementById('rel-busca').value = '';
+  REL_COR_SEL = '';
+  document.getElementById('rel-cores').innerHTML = CORES_ETIQUETA.map(function(c){
+    return '<div class="mo-cor-op" data-cor="'+c+'" style="background:'+c+'" onclick="relSelecionarCor(\''+c+'\')"></div>';
+  }).join('');
+  document.getElementById('relatorio-overlay').classList.add('open');
+}
+function fecharModalRelatorio(){ document.getElementById('relatorio-overlay').classList.remove('open'); }
+
+function relToggleColuna(colId){
+  REL_COLUNAS_SEL[colId] = !REL_COLUNAS_SEL[colId];
+  var btn = document.querySelector('#rel-colunas-chips [data-col="'+colId+'"]');
+  btn.style.opacity = REL_COLUNAS_SEL[colId] ? '1' : '.35';
+}
+function relSelecionarCor(cor){
+  REL_COR_SEL = (REL_COR_SEL === cor) ? '' : cor;
+  document.querySelectorAll('#rel-cores .mo-cor-op').forEach(function(el){
+    el.classList.toggle('sel', el.dataset.cor === REL_COR_SEL);
+  });
+}
+
+function gerarRelatorio(){
+  var responsavelFiltro = document.getElementById('rel-responsavel').value.trim().toLowerCase();
+  var buscaFiltro = document.getElementById('rel-busca').value.trim().toLowerCase();
+
+  var filtrados = cards.filter(function(c){
+    if(!REL_COLUNAS_SEL[c.coluna_id]) return false;
+    if(responsavelFiltro && !(c.responsavel||'').toLowerCase().includes(responsavelFiltro)) return false;
+    if(buscaFiltro){
+      var alvo = ((c.titulo||'')+' '+(c.contato_nome||'')).toLowerCase();
+      if(!alvo.includes(buscaFiltro)) return false;
+    }
+    if(REL_COR_SEL && c.etiqueta_cor !== REL_COR_SEL) return false;
+    return true;
+  });
+
+  // Cabeçalho do relatório
+  var partesFiltro = [];
+  var colunasIncluidas = colunas.filter(function(c){ return REL_COLUNAS_SEL[c.id]; });
+  if(colunasIncluidas.length < colunas.length) partesFiltro.push('Colunas: '+colunasIncluidas.map(function(c){return c.nome;}).join(', '));
+  if(responsavelFiltro) partesFiltro.push('Responsável: "'+document.getElementById('rel-responsavel').value.trim()+'"');
+  if(buscaFiltro) partesFiltro.push('Busca: "'+document.getElementById('rel-busca').value.trim()+'"');
+  if(REL_COR_SEL) partesFiltro.push('Etiqueta selecionada');
+  var sub = 'Gerado em '+new Date().toLocaleString('pt-BR');
+  if(partesFiltro.length) sub += ' — Filtros: '+partesFiltro.join(' | ');
+  document.getElementById('print-subtitulo').textContent = sub;
+
+  var totalValor = filtrados.reduce(function(s,c){ return s+n(c.valor_estimado); }, 0);
+  var totalComissao = filtrados.reduce(function(s,c){ return s+n(c.comissionamento_estimado); }, 0);
+  document.getElementById('print-k-qtd').textContent = filtrados.length;
+  document.getElementById('print-k-valor').textContent = fmtR(totalValor);
+  document.getElementById('print-k-comissao').textContent = fmtR(totalComissao);
+
+  // Tabela, agrupada por coluna (etapa do funil)
+  var html = '';
+  colunasIncluidas.forEach(function(col){
+    var doGrupo = filtrados.filter(function(c){ return c.coluna_id === col.id; });
+    if(!doGrupo.length) return;
+    html += '<h3 style="font-family:var(--disp);font-size:14px;margin:16px 0 6px;color:var(--t1)">'+esc(col.nome)+' ('+doGrupo.length+')</h3>';
+    html += '<table class="rel-tabela"><thead><tr><th>Empresa/Lead</th><th>Contato</th><th>Responsável</th><th>Valor estimado</th><th>Criado por</th><th>Criado em</th></tr></thead><tbody>';
+    doGrupo.forEach(function(c){
+      html += '<tr>'+
+        '<td>'+esc(c.titulo)+'</td>'+
+        '<td>'+esc(c.contato_nome||'—')+'</td>'+
+        '<td>'+esc(c.responsavel||'—')+'</td>'+
+        '<td>'+(c.valor_estimado?fmtR(c.valor_estimado):'—')+'</td>'+
+        '<td>'+esc(c.criado_por_nome||'—')+'</td>'+
+        '<td>'+fmtDataHora(c.criado_em)+'</td>'+
+      '</tr>';
+    });
+    html += '</tbody></table>';
+  });
+  if(!html) html = '<p style="color:var(--t3);text-align:center;padding:20px">Nenhum card encontrado para os filtros selecionados.</p>';
+  document.getElementById('print-tabela-wrap').innerHTML = html;
+
+  fecharModalRelatorio();
+  window.print();
+}
+
 function abrirModalColuna(){
   document.getElementById('col-nome').value = '';
   document.getElementById('coluna-msg').style.display = 'none';
