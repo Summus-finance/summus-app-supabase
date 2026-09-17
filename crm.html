@@ -78,6 +78,9 @@ h1,h2,h3{font-family:var(--disp)}
 .coluna-nova:hover{border-color:var(--t3);color:var(--t2)}
 /* MODAL */
 .mo-overlay{display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.55);z-index:9999;padding:16px;overflow-y:auto}
+#metas-comercial-overlay.open{display:flex;align-items:center;justify-content:center}
+#mc-box{cursor:default}
+#mc-box .kcard-h{cursor:move;user-select:none}
 .mo-overlay.open{display:block}
 .mo-box{background:var(--cd);border-radius:14px;max-width:480px;margin:0 auto;padding:22px 26px 26px;box-shadow:0 10px 50px rgba(0,0,0,.35)}
 .mo-head{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:16px}
@@ -120,6 +123,21 @@ h1,h2,h3{font-family:var(--disp)}
   .rel-tabela tr{page-break-inside:avoid}
   .rel-tabela th{-webkit-print-color-adjust:exact;print-color-adjust:exact}
 }
+/* ── Estilo do popup "Metas Comercial" (reaproveitado do Acompanhamento de Metas) ── */
+.kcard-h{background:linear-gradient(155deg,var(--br) 0%,var(--br-ink) 100%);color:#fff;padding:10px 16px;font-size:13px;font-weight:600;display:flex;align-items:center;gap:8px;letter-spacing:.1px;border-radius:12px 12px 0 0;margin:-26px -26px 16px}
+.mi{padding-bottom:14px;margin-bottom:14px;border-bottom:1px solid var(--bd)}
+.mi:last-child{padding-bottom:0;margin-bottom:0;border-bottom:none}
+.mi-h{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;gap:8px}
+.mi-l{font-size:13px;color:var(--t1);font-weight:600}
+.mi-badge{font-size:12px;font-weight:700;font-family:var(--num);padding:2px 10px;border-radius:20px;border:1px solid;white-space:nowrap}
+.mi-badge.g{color:#1d7a5c;background:#e4f3ea;border-color:#a8d8bf}
+.mi-badge.y{color:#9c6a12;background:#faf0dd;border-color:#dcb35f}
+.mi-badge.r{color:#93372f;background:#fbe9e6;border-color:#e3b3ac}
+.bar-w{height:9px;background:var(--bg);border-radius:99px;overflow:hidden;margin-bottom:6px}
+.bar{height:100%;border-radius:99px;transition:width .4s}
+.mi-v{display:flex;justify-content:space-between;align-items:baseline;font-size:13px;color:var(--t2);gap:8px;flex-wrap:wrap;font-family:inherit}
+.mi-v .real{font-size:15px;font-weight:600;color:var(--t1)}
+.mi-v .sep{margin:0 5px}
 </style>
 </head>
 <body>
@@ -132,6 +150,7 @@ h1,h2,h3{font-family:var(--disp)}
     </div>
     <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
       <button class="tbtn" style="border:none;background:rgba(255,255,255,.12)" onclick="abrirModalRelatorio()"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9V2h12v7"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg> Relatório</button>
+      <button id="btn-metas-comercial" class="tbtn" style="border:none;background:rgba(255,255,255,.12);display:none" onclick="abrirModalMetasComercial()"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="8.5" cy="7" r="4"/><path d="M20 8v6M23 11h-6"/></svg> Metas Comercial</button>
       <a href="painel.html" style="display:inline-flex;align-items:center;gap:6px;background:rgba(255,255,255,.18);border:1px solid rgba(255,255,255,.35);border-radius:8px;padding:7px 14px;font-size:13px;color:#fff;text-decoration:none;font-family:var(--body)"><svg viewBox="0 0 24 24" style="width:14px;height:14px;fill:none;stroke:#fff;stroke-width:2;stroke-linecap:round;stroke-linejoin:round"><polyline points="15 18 9 12 15 6"/></svg>Página Inicial</a>
     </div>
   </div>
@@ -204,6 +223,19 @@ h1,h2,h3{font-family:var(--disp)}
   </div>
 </div>
 
+<!-- ══ MODAL METAS COMERCIAL (mesma formatação do Acompanhamento de Metas) ══ -->
+<div id="metas-comercial-overlay" class="mo-overlay">
+  <div class="mo-box" id="mc-box" style="max-width:460px;padding-top:0">
+    <div class="kcard-h" id="mc-drag-handle">
+      <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="8.5" cy="7" r="4"/><path d="M20 8v6M23 11h-6"/></svg>
+      COMERCIAL
+      <button onclick="fecharModalMetasComercial()" style="margin-left:auto;background:none;border:none;color:#fff;font-size:22px;cursor:pointer;line-height:1">&times;</button>
+    </div>
+    <p id="mc-subtitulo" style="font-size:11px;color:var(--t3);margin:-10px 0 16px"></p>
+    <div id="mc-conteudo"><div class="empty" style="padding:30px;text-align:center;color:var(--t3)">Carregando...</div></div>
+  </div>
+</div>
+
 <!-- ══ MODAL RELATÓRIO ══ -->
 <div id="relatorio-overlay" class="mo-overlay">
   <div class="mo-box" style="max-width:480px">
@@ -220,6 +252,9 @@ h1,h2,h3{font-family:var(--disp)}
     </div>
     <div class="mo-f"><label>Responsável (opcional)</label><input id="rel-responsavel" type="text" placeholder="Nome do responsável"></div>
     <div class="mo-f"><label>Buscar por empresa/lead ou contato (opcional)</label><input id="rel-busca" type="text" placeholder="Digite parte do nome"></div>
+    <label style="display:flex;align-items:center;gap:8px;font-size:13px;color:var(--t2);margin-top:12px;cursor:pointer">
+      <input type="checkbox" id="rel-so-site"> Somente leads que vieram do site (formulário público)
+    </label>
     <div class="mo-f">
       <label>Etiqueta (opcional)</label>
       <div class="mo-cores" id="rel-cores"></div>
@@ -438,6 +473,7 @@ function renderCard(card){
   var h = '<div class="card" draggable="true" data-card-id="'+card.id+'" ondragstart="onDragStartCard(event,'+card.id+')" ondragend="onDragEndCard(event)" ontouchstart="onCardTouchStart(event,'+card.id+')" ontouchmove="onCardTouchMove(event)" ontouchend="onCardTouchEnd(event)" onclick="abrirModalCard('+card.id+')">';
   if(card.etiqueta_cor) h += '<div class="card-etq" style="background:'+card.etiqueta_cor+'"></div>';
   h += '<div class="card-titulo">'+esc(card.titulo)+'</div>';
+  if(card.origem === 'site') h += '<div style="display:inline-flex;align-items:center;gap:4px;font-size:9px;font-weight:700;color:#00838f;background:#e0f7fa;border:1px solid #80deea;padding:2px 7px;border-radius:20px;margin-bottom:5px">🌐 Veio do site</div>';
   if(card.responsavel) h += '<div class="card-info">👤 '+esc(card.responsavel)+'</div>';
   if(card.contato_nome) h += '<div class="card-info">✉️ '+esc(card.contato_nome)+'</div>';
   if(card.municipio || card.uf) h += '<div class="card-info">📍 '+esc([card.municipio, card.uf].filter(Boolean).join(' - '))+'</div>';
@@ -741,6 +777,149 @@ function excluirCard(){
 var REL_COLUNAS_SEL = {}; // colunas marcadas nos filtros (id -> true)
 var REL_COR_SEL = '';
 
+/* ── METAS COMERCIAL (popup, mesma formatação do Acompanhamento de Metas) ── */
+function mcN(v){ var x=parseFloat(v); x=isNaN(x)?0:x; return x.toLocaleString('pt-BR',{maximumFractionDigits:0}); }
+function mcBadgeCls(pct){ return pct>=100?'g':(pct>=60?'y':'r'); }
+function mcBarColor(cls){ return cls==='g'?'#1d9e75':(cls==='y'?'#e0a020':'#c0392b'); }
+var MC_DADOS_MES = null; // cache dos lançamentos do mês mais recente (todas as empresas), pra não rebuscar a cada clique no checkbox
+var MC_SOMAR_CED = false;
+var MC_SOMAR_NOVOS = false;
+
+// Mesmo checkbox "Somar as duas empresas" do Acompanhamento de Metas.
+function mcCheckboxSomar(id, checked, onchangeFn){
+  return '<label style="display:flex;align-items:center;gap:5px;font-size:11px;font-weight:400;color:var(--t3);cursor:pointer;white-space:nowrap"><input type="checkbox" id="'+id+'" '+(checked?'checked':'')+' onchange="'+onchangeFn+'"> Somar as duas empresas</label>';
+}
+// Mesma lógica: sem marcar, mostra só a 1ª empresa (ordem alfabética); marcando, soma as duas.
+function mcValorPorEmpresaOuSoma(d, prefixo, somar){
+  var porEmpresa = {};
+  d.forEach(function(r){
+    var e = r.empresa || '';
+    if(!porEmpresa[e]) porEmpresa[e] = {meta:0, real:0};
+    var m = parseFloat(r[prefixo+'_meta']); var re = parseFloat(r[prefixo+'_realizado']);
+    porEmpresa[e].meta += isNaN(m)?0:m; porEmpresa[e].real += isNaN(re)?0:re;
+  });
+  var empresas = Object.keys(porEmpresa).sort();
+  if(!empresas.length) return {meta:0, real:0};
+  if(somar){
+    var meta=0, real=0;
+    empresas.forEach(function(e){ meta+=porEmpresa[e].meta; real+=porEmpresa[e].real; });
+    return {meta:meta, real:real};
+  }
+  return porEmpresa[empresas[0]];
+}
+function mcSomaCampo(d, campo){ return d.reduce(function(s,r){ var x=parseFloat(r[campo]); return s+(isNaN(x)?0:x); },0); }
+
+// Mesmo formato do itemMeta usado no Acompanhamento de Metas (faltaAbaixo=true), com checkbox opcional.
+function mcItemMeta(lbl, real, meta, checkboxHtml){
+  var pctReal = meta>0 ? Math.round(real/meta*100) : 0;
+  var pct = Math.min(Math.max(pctReal,0),100);
+  var cls = mcBadgeCls(pctReal);
+  var falta = meta-real;
+  var faltaTxt = meta>0 ? (falta>0?('Falta: '+mcN(falta)):'✓ Meta atingida!') : '';
+  return '<div class="mi"><div class="mi-h"><div style="display:flex;align-items:center;gap:8px;min-width:0"><span class="mi-l">'+lbl+'</span>'+(checkboxHtml||'')+'</div>'+(meta>0?'<span class="mi-badge '+cls+'">'+pctReal+'%'+(pctReal>=100?' ✓':'')+'</span>':'')+'</div>'+
+    (meta>0?'<div class="bar-w"><div class="bar" style="width:'+pct+'%;background:'+mcBarColor(cls)+'"></div></div>':'')+
+    '<div class="mi-v"><span><span class="real">'+mcN(real)+'</span>'+(meta>0?'<span class="sep">de</span>'+mcN(meta):'')+'</span></div>'+
+    (meta>0?'<div style="font-size:13px;color:var(--t2);margin-top:2px">'+faltaTxt+'</div>':'')+
+  '</div>';
+}
+// Mesmo formato do itemOperado (compara com o cadastrado, não com uma meta própria).
+function mcItemOperado(lbl, operado, cadastrado){
+  var pctReal = cadastrado>0 ? Math.round(operado/cadastrado*100) : 0;
+  var pct = Math.min(Math.max(pctReal,0),100);
+  var cls = mcBadgeCls(pctReal);
+  var falta = cadastrado-operado;
+  var faltaTxt = cadastrado>0 ? (falta>0?('Falta: '+mcN(falta)):'✓ Meta atingida!') : '';
+  return '<div class="mi"><div class="mi-h"><span class="mi-l">'+lbl+'</span><span class="mi-badge '+cls+'">'+pctReal+'%'+(pctReal>=100?' ✓':'')+'</span></div>'+
+    '<div class="bar-w"><div class="bar" style="width:'+pct+'%;background:'+mcBarColor(cls)+'"></div></div>'+
+    '<div class="mi-v"><span><span class="real">'+mcN(operado)+'</span><span class="sep">de</span>'+mcN(cadastrado)+' cadastrados</span></div>'+
+    '<div style="font-size:13px;color:var(--t2);margin-top:2px">'+faltaTxt+'</div>'+
+  '</div>';
+}
+
+function mcRenderizar(){
+  var d = MC_DADOS_MES;
+  if(!d) return;
+  var ced = mcValorPorEmpresaOuSoma(d, 'cedentes', MC_SOMAR_CED);
+  var totalCedOperado = mcSomaCampo(d, 'total_cedentes_operado');
+  var novosCed = mcValorPorEmpresaOuSoma(d, 'novos_cedentes', MC_SOMAR_NOVOS);
+  var operaram = mcValorPorEmpresaOuSoma(d, 'operaram_no_mes', true); // sempre somado, igual ao original (sem checkbox aqui)
+
+  var chkCed = mcCheckboxSomar('mc-somar-ced', MC_SOMAR_CED, "MC_SOMAR_CED=this.checked;mcRenderizar()");
+  var chkNovos = mcCheckboxSomar('mc-somar-novos', MC_SOMAR_NOVOS, "MC_SOMAR_NOVOS=this.checked;mcRenderizar()");
+
+  document.getElementById('mc-conteudo').innerHTML =
+    mcItemMeta('Total cedentes cadastrados', ced.real, ced.meta, chkCed) +
+    mcItemOperado('Total cedentes operado', totalCedOperado, ced.real) +
+    mcItemMeta('Novos cedentes', novosCed.real, novosCed.meta, chkNovos) +
+    mcItemMeta('Operaram no mês', operaram.real, operaram.meta);
+}
+
+function abrirModalMetasComercial(){
+  document.getElementById('metas-comercial-overlay').classList.add('open');
+  document.getElementById('mc-conteudo').innerHTML = '<div class="empty" style="padding:30px;text-align:center;color:var(--t3)">Carregando...</div>';
+  document.getElementById('mc-subtitulo').textContent = '';
+  mcResetarPosicao();
+  MC_SOMAR_CED = false;
+  MC_SOMAR_NOVOS = false;
+
+  sb.from('meta_x_realizado').select('*').then(function(res){
+    if(res.error){
+      document.getElementById('mc-conteudo').innerHTML = '<div class="empty" style="padding:20px;text-align:center;color:#93372f">Erro ao carregar: '+res.error.message+'</div>';
+      return;
+    }
+    var dados = res.data || [];
+    if(!dados.length){
+      document.getElementById('mc-conteudo').innerHTML = '<div class="empty" style="padding:30px;text-align:center;color:var(--t3)">Nenhum lançamento encontrado ainda.</div>';
+      return;
+    }
+    // Usa sempre o mês/ano mais recente disponível — é um retrato do momento atual.
+    var MESES_ORDEM = ['janeiro','fevereiro','março','abril','maio','junho','julho','agosto','setembro','outubro','novembro','dezembro'];
+    var maisRecente = dados.reduce(function(a,b){
+      var av = (a.ano||0)*100 + MESES_ORDEM.indexOf(String(a.mes||'').toLowerCase());
+      var bv = (b.ano||0)*100 + MESES_ORDEM.indexOf(String(b.mes||'').toLowerCase());
+      return bv > av ? b : a;
+    }, dados[0]);
+    MC_DADOS_MES = dados.filter(function(r){ return r.mes === maisRecente.mes && r.ano === maisRecente.ano; });
+
+    document.getElementById('mc-subtitulo').textContent = 'Referente a '+(maisRecente.mes||'')+'/'+(maisRecente.ano||'');
+    mcRenderizar();
+  });
+}
+function fecharModalMetasComercial(){ document.getElementById('metas-comercial-overlay').classList.remove('open'); }
+
+/* ── ARRASTAR A JANELA DE METAS COMERCIAL (pra qualquer direção) ── */
+var MC_ARRASTO = { ativo:false, offX:0, offY:0 };
+function mcResetarPosicao(){
+  var box = document.getElementById('mc-box');
+  box.style.position = '';
+  box.style.left = '';
+  box.style.top = '';
+  box.style.margin = '';
+}
+(function(){
+  var handle = document.getElementById('mc-drag-handle');
+  if(!handle) return;
+  handle.addEventListener('mousedown', function(ev){
+    var box = document.getElementById('mc-box');
+    var rect = box.getBoundingClientRect();
+    MC_ARRASTO.ativo = true;
+    MC_ARRASTO.offX = ev.clientX - rect.left;
+    MC_ARRASTO.offY = ev.clientY - rect.top;
+    box.style.position = 'fixed';
+    box.style.margin = '0';
+    box.style.left = rect.left+'px';
+    box.style.top = rect.top+'px';
+    ev.preventDefault();
+  });
+  document.addEventListener('mousemove', function(ev){
+    if(!MC_ARRASTO.ativo) return;
+    var box = document.getElementById('mc-box');
+    box.style.left = (ev.clientX - MC_ARRASTO.offX)+'px';
+    box.style.top = (ev.clientY - MC_ARRASTO.offY)+'px';
+  });
+  document.addEventListener('mouseup', function(){ MC_ARRASTO.ativo = false; });
+})();
+
 function abrirModalRelatorio(){
   var box = document.getElementById('rel-colunas-chips');
   REL_COLUNAS_SEL = {};
@@ -750,6 +929,7 @@ function abrirModalRelatorio(){
   }).join('');
   document.getElementById('rel-responsavel').value = '';
   document.getElementById('rel-busca').value = '';
+  document.getElementById('rel-so-site').checked = false;
   REL_COR_SEL = '';
   document.getElementById('rel-cores').innerHTML = CORES_ETIQUETA.map(function(c){
     return '<div class="mo-cor-op" data-cor="'+c+'" style="background:'+c+'" onclick="relSelecionarCor(\''+c+'\')"></div>';
@@ -782,6 +962,7 @@ function gerarRelatorio(){
       if(!alvo.includes(buscaFiltro)) return false;
     }
     if(REL_COR_SEL && c.etiqueta_cor !== REL_COR_SEL) return false;
+    if(document.getElementById('rel-so-site').checked && c.origem !== 'site') return false;
     return true;
   });
 
@@ -882,6 +1063,7 @@ sb.auth.getSession().then(function(res){
       return;
     }
     document.getElementById('app').style.display='block';
+    if(perfilAtual.acessa_metas) document.getElementById('btn-metas-comercial').style.display='inline-flex';
     carregarCorSistema();
     carregarQuadro();
   });
