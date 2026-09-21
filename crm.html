@@ -69,8 +69,13 @@ h1,h2,h3{font-family:var(--disp)}
 .card:hover{box-shadow:0 4px 12px rgba(28,35,29,.12)}
 .card.dragging{opacity:.4}
 .card-com-menu{padding-right:26px}
+.card-com-setas{padding-right:46px}
 .card-menu-btn{position:absolute;top:6px;right:6px;background:none;border:none;cursor:pointer;color:var(--t3);padding:3px;border-radius:5px;display:flex;z-index:2}
 .card-menu-btn:hover{background:var(--bg);color:var(--t1)}
+.card-arrows{position:absolute;top:6px;right:6px;display:flex;gap:2px;z-index:2}
+.card-arrow-btn{background:none;border:none;cursor:pointer;color:var(--t3);padding:3px;border-radius:5px;display:flex;align-items:center;justify-content:center}
+.card-arrow-btn:hover{background:var(--bg);color:var(--t1)}
+.card-arrow-btn svg{width:13px;height:13px}
 .card-move-menu{display:none;flex-direction:column;gap:1px;position:absolute;top:26px;right:6px;background:var(--cd);border:1px solid var(--bd);border-radius:8px;box-shadow:0 8px 24px rgba(0,0,0,.18);min-width:160px;z-index:50;padding:4px;cursor:default}
 .card-move-menu.open{display:flex}
 .card-move-label{font-size:10px;text-transform:uppercase;letter-spacing:.3px;color:var(--t3);padding:6px 9px 3px;font-weight:700}
@@ -131,6 +136,7 @@ h1,h2,h3{font-family:var(--disp)}
   .rel-tabela{page-break-inside:auto}
   .rel-tabela tr{page-break-inside:avoid}
   .rel-tabela th{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  @page{size:landscape}
 }
 /* ── Estilo do popup "Metas Comercial" (reaproveitado do Acompanhamento de Metas) ── */
 .kcard-h{background:linear-gradient(155deg,var(--br) 0%,var(--br-ink) 100%);color:#fff;padding:10px 16px;font-size:13px;font-weight:600;display:flex;align-items:center;gap:8px;letter-spacing:.1px;border-radius:12px 12px 0 0;margin:-26px -26px 16px}
@@ -210,6 +216,19 @@ h1,h2,h3{font-family:var(--disp)}
     </div>
     <div class="mo-f"><label>Comissionamento estimado (R$)</label><input id="cd-comissionamento" type="text" inputmode="numeric" placeholder="0,00" oninput="mascaraMoedaOnInput(event)"></div>
     <div class="mo-f"><label>Responsável</label><input id="cd-responsavel" type="text" placeholder="Quem está cuidando desse lead"></div>
+    <div class="mo-f"><label>Origem do Lead</label>
+      <select id="cd-origem-lead">
+        <option value="">Selecione</option>
+        <option value="Site">Site</option>
+        <option value="Indicação">Indicação</option>
+        <option value="WhatsApp">WhatsApp</option>
+        <option value="Prospecção ativa">Prospecção ativa</option>
+        <option value="Evento / feira">Evento / feira</option>
+        <option value="Parceria comercial">Parceria comercial</option>
+        <option value="Diretoria (João/Giuliano)">Diretoria (João/Giuliano)</option>
+        <option value="Outros">Outros</option>
+      </select>
+    </div>
     <div class="mo-f"><label>Notas</label><textarea id="cd-notas" placeholder="Observações, próximos passos..."></textarea></div>
     <div class="mo-f">
       <label>Etiqueta</label>
@@ -264,6 +283,20 @@ h1,h2,h3{font-family:var(--disp)}
     <label style="display:flex;align-items:center;gap:8px;font-size:13px;color:var(--t2);margin-top:12px;cursor:pointer">
       <input type="checkbox" id="rel-so-site"> Somente leads que vieram do site (formulário público)
     </label>
+    <div class="mo-f" style="margin-top:12px">
+      <label>Origem do Lead (opcional)</label>
+      <select id="rel-origem-lead">
+        <option value="">Todas</option>
+        <option value="Site">Site</option>
+        <option value="Indicação">Indicação</option>
+        <option value="WhatsApp">WhatsApp</option>
+        <option value="Prospecção ativa">Prospecção ativa</option>
+        <option value="Evento / feira">Evento / feira</option>
+        <option value="Parceria comercial">Parceria comercial</option>
+        <option value="Diretoria (João/Giuliano)">Diretoria (João/Giuliano)</option>
+        <option value="Outros">Outros</option>
+      </select>
+    </div>
     <div class="mo-f">
       <label>Etiqueta (opcional)</label>
       <div class="mo-cores" id="rel-cores"></div>
@@ -346,7 +379,7 @@ var CARD_ORIGINAL = null; // snapshot do card antes da edição, pra detectar o 
 var CAMPOS_LABELS_CRM = {
   titulo: 'Empresa/Lead', contato_nome:'Contato', contato_telefone:'Telefone', contato_email:'E-mail',
   municipio:'Município', uf:'UF', valor_estimado:'Valor estimado', taxa_estimada:'Taxa estimada (%)',
-  comissionamento_estimado:'Comissionamento estimado', responsavel:'Responsável', notas:'Notas', etiqueta_cor:'Etiqueta'
+  comissionamento_estimado:'Comissionamento estimado', responsavel:'Responsável', origem_lead:'Origem do Lead', notas:'Notas', etiqueta_cor:'Etiqueta'
 };
 var CAMPOS_MOEDA_CRM = {valor_estimado:1, comissionamento_estimado:1};
 
@@ -481,8 +514,13 @@ function renderBoard(){
 function renderCard(card, colNome){
   // Cards na coluna "Leads" ganham um menu de atalho (⋮) pra pular direto
   // pra qualquer outra etapa (ex: Pausado, Perdido), sem precisar arrastar.
+  // Cards nas demais colunas ganham setinhas pra mover pra etapa anterior/seguinte.
   var ehLeads = (colNome||'').trim().toLowerCase() === 'leads';
-  var h = '<div class="card'+(ehLeads?' card-com-menu':'')+'" draggable="true" data-card-id="'+card.id+'" ondragstart="onDragStartCard(event,'+card.id+')" ondragend="onDragEndCard(event)" ontouchstart="onCardTouchStart(event,'+card.id+')" ontouchmove="onCardTouchMove(event)" ontouchend="onCardTouchEnd(event)" onclick="abrirModalCard('+card.id+')">';
+  var meuIndex = colunas.findIndex(function(c){ return c.id === card.coluna_id; });
+  var colAnterior = (!ehLeads && meuIndex > 0) ? colunas[meuIndex-1] : null;
+  var colProxima = (!ehLeads && meuIndex >= 0 && meuIndex < colunas.length-1) ? colunas[meuIndex+1] : null;
+  var claseExtra = ehLeads ? ' card-com-menu' : ((colAnterior||colProxima) ? ' card-com-setas' : '');
+  var h = '<div class="card'+claseExtra+'" draggable="true" data-card-id="'+card.id+'" ondragstart="onDragStartCard(event,'+card.id+')" ondragend="onDragEndCard(event)" ontouchstart="onCardTouchStart(event,'+card.id+')" ontouchmove="onCardTouchMove(event)" ontouchend="onCardTouchEnd(event)" onclick="abrirModalCard('+card.id+')">';
   if(ehLeads){
     h += '<button class="card-menu-btn" title="Mover para outra etapa" onclick="toggleCardMenu(event,'+card.id+')"><svg viewBox="0 0 24 24" style="width:14px;height:14px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round"><circle cx="12" cy="5" r="1.4" fill="currentColor" stroke="none"/><circle cx="12" cy="12" r="1.4" fill="currentColor" stroke="none"/><circle cx="12" cy="19" r="1.4" fill="currentColor" stroke="none"/></svg></button>';
     h += '<div class="card-move-menu" id="card-menu-'+card.id+'" onclick="event.stopPropagation()">';
@@ -492,11 +530,17 @@ function renderCard(card, colNome){
       h += '<button class="card-move-item" onclick="moverCardViaMenu(event,'+card.id+','+destCol.id+')"><span class="dot" style="background:'+(destCol.cor||'#5b6b5c')+'"></span>'+esc(destCol.nome)+'</button>';
     });
     h += '</div>';
+  } else if(colAnterior || colProxima){
+    h += '<div class="card-arrows">';
+    if(colAnterior) h += '<button class="card-arrow-btn" title="Mover para \''+esc(colAnterior.nome)+'\'" onclick="moverCardViaMenu(event,'+card.id+','+colAnterior.id+')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg></button>';
+    if(colProxima) h += '<button class="card-arrow-btn" title="Mover para \''+esc(colProxima.nome)+'\'" onclick="moverCardViaMenu(event,'+card.id+','+colProxima.id+')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg></button>';
+    h += '</div>';
   }
   if(card.etiqueta_cor) h += '<div class="card-etq" style="background:'+card.etiqueta_cor+'"></div>';
   h += '<div class="card-titulo">'+esc(card.titulo)+'</div>';
   if(card.origem === 'site') h += '<div style="display:inline-flex;align-items:center;gap:4px;font-size:9px;font-weight:700;color:#00838f;background:#e0f7fa;border:1px solid #80deea;padding:2px 7px;border-radius:20px;margin-bottom:5px">🌐 Veio do site</div>';
   if(card.responsavel) h += '<div class="card-info">👤 '+esc(card.responsavel)+'</div>';
+  if(card.origem_lead) h += '<div class="card-info">🎯 '+esc(card.origem_lead)+'</div>';
   if(card.contato_nome) h += '<div class="card-info">✉️ '+esc(card.contato_nome)+'</div>';
   if(card.municipio || card.uf) h += '<div class="card-info">📍 '+esc([card.municipio, card.uf].filter(Boolean).join(' - '))+'</div>';
   if(card.valor_estimado) h += '<div class="card-valor">'+fmtR(card.valor_estimado)+'</div>';
@@ -723,6 +767,7 @@ function abrirModalCard(cardId, colunaId){
   document.getElementById('cd-taxa').value = card ? (card.taxa_estimada||'') : '';
   document.getElementById('cd-comissionamento').value = card ? numeroParaMoeda(card.comissionamento_estimado) : '';
   document.getElementById('cd-responsavel').value = card ? (card.responsavel||'') : '';
+  document.getElementById('cd-origem-lead').value = card ? (card.origem_lead||'') : '';
   document.getElementById('cd-notas').value = card ? (card.notas||'') : '';
   document.getElementById('card-excluir').style.display = card ? 'inline-flex' : 'none';
   document.getElementById('card-msg').style.display = 'none';
@@ -765,6 +810,7 @@ function salvarCard(){
     taxa_estimada: document.getElementById('cd-taxa').value ? parseFloat(document.getElementById('cd-taxa').value) : null,
     comissionamento_estimado: moedaParaNumero(document.getElementById('cd-comissionamento').value),
     responsavel: document.getElementById('cd-responsavel').value.trim() || null,
+    origem_lead: document.getElementById('cd-origem-lead').value || null,
     notas: document.getElementById('cd-notas').value.trim() || null,
     etiqueta_cor: CARD_COR_SEL || null,
     atualizado_em: new Date().toISOString()
@@ -970,6 +1016,7 @@ function abrirModalRelatorio(){
   document.getElementById('rel-responsavel').value = '';
   document.getElementById('rel-busca').value = '';
   document.getElementById('rel-so-site').checked = false;
+  document.getElementById('rel-origem-lead').value = '';
   REL_COR_SEL = '';
   document.getElementById('rel-cores').innerHTML = CORES_ETIQUETA.map(function(c){
     return '<div class="mo-cor-op" data-cor="'+c+'" style="background:'+c+'" onclick="relSelecionarCor(\''+c+'\')"></div>';
@@ -993,6 +1040,7 @@ function relSelecionarCor(cor){
 function gerarRelatorio(){
   var responsavelFiltro = document.getElementById('rel-responsavel').value.trim().toLowerCase();
   var buscaFiltro = document.getElementById('rel-busca').value.trim().toLowerCase();
+  var origemFiltro = document.getElementById('rel-origem-lead').value;
 
   var filtrados = cards.filter(function(c){
     if(!REL_COLUNAS_SEL[c.coluna_id]) return false;
@@ -1003,6 +1051,7 @@ function gerarRelatorio(){
     }
     if(REL_COR_SEL && c.etiqueta_cor !== REL_COR_SEL) return false;
     if(document.getElementById('rel-so-site').checked && c.origem !== 'site') return false;
+    if(origemFiltro && c.origem_lead !== origemFiltro) return false;
     return true;
   });
 
@@ -1013,6 +1062,7 @@ function gerarRelatorio(){
   if(responsavelFiltro) partesFiltro.push('Responsável: "'+document.getElementById('rel-responsavel').value.trim()+'"');
   if(buscaFiltro) partesFiltro.push('Busca: "'+document.getElementById('rel-busca').value.trim()+'"');
   if(REL_COR_SEL) partesFiltro.push('Etiqueta selecionada');
+  if(origemFiltro) partesFiltro.push('Origem do Lead: "'+origemFiltro+'"');
   var sub = 'Gerado em '+new Date().toLocaleString('pt-BR');
   if(partesFiltro.length) sub += ' — Filtros: '+partesFiltro.join(' | ');
   document.getElementById('print-subtitulo').textContent = sub;
@@ -1029,12 +1079,13 @@ function gerarRelatorio(){
     var doGrupo = filtrados.filter(function(c){ return c.coluna_id === col.id; });
     if(!doGrupo.length) return;
     html += '<h3 style="font-family:var(--disp);font-size:14px;margin:16px 0 6px;color:var(--t1)">'+esc(col.nome)+' ('+doGrupo.length+')</h3>';
-    html += '<table class="rel-tabela"><thead><tr><th>Empresa/Lead</th><th>Contato</th><th>Responsável</th><th>Valor estimado</th><th>Criado por</th><th>Criado em</th></tr></thead><tbody>';
+    html += '<table class="rel-tabela"><thead><tr><th>Empresa/Lead</th><th>Contato</th><th>Responsável</th><th>Origem</th><th>Valor estimado</th><th>Criado por</th><th>Criado em</th></tr></thead><tbody>';
     doGrupo.forEach(function(c){
       html += '<tr>'+
         '<td>'+esc(c.titulo)+'</td>'+
         '<td>'+esc(c.contato_nome||'—')+'</td>'+
         '<td>'+esc(c.responsavel||'—')+'</td>'+
+        '<td>'+esc(c.origem_lead||'—')+'</td>'+
         '<td>'+(c.valor_estimado?fmtR(c.valor_estimado):'—')+'</td>'+
         '<td>'+esc(c.criado_por_nome||'—')+'</td>'+
         '<td>'+fmtDataHora(c.criado_em)+'</td>'+
