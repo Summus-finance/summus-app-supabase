@@ -65,9 +65,18 @@ h1,h2,h3{font-family:var(--disp)}
 .coluna-count{font-size:11px;color:var(--t3);font-family:var(--num);background:var(--bg);border-radius:10px;padding:1px 7px}
 .coluna-menu-btn{background:none;border:none;cursor:pointer;color:var(--t3);padding:2px;display:flex}
 .coluna-lista{padding:8px;overflow-y:auto;flex:1;min-height:40px}
-.card{background:var(--cd);border:1px solid var(--bd);border-radius:9px;padding:10px 11px;margin-bottom:8px;cursor:grab;box-shadow:0 1px 2px rgba(28,35,29,.05);transition:box-shadow .12s,transform .12s}
+.card{background:var(--cd);border:1px solid var(--bd);border-radius:9px;padding:10px 11px;margin-bottom:8px;cursor:grab;box-shadow:0 1px 2px rgba(28,35,29,.05);transition:box-shadow .12s,transform .12s;position:relative}
 .card:hover{box-shadow:0 4px 12px rgba(28,35,29,.12)}
 .card.dragging{opacity:.4}
+.card-com-menu{padding-right:26px}
+.card-menu-btn{position:absolute;top:6px;right:6px;background:none;border:none;cursor:pointer;color:var(--t3);padding:3px;border-radius:5px;display:flex;z-index:2}
+.card-menu-btn:hover{background:var(--bg);color:var(--t1)}
+.card-move-menu{display:none;flex-direction:column;gap:1px;position:absolute;top:26px;right:6px;background:var(--cd);border:1px solid var(--bd);border-radius:8px;box-shadow:0 8px 24px rgba(0,0,0,.18);min-width:160px;z-index:50;padding:4px;cursor:default}
+.card-move-menu.open{display:flex}
+.card-move-label{font-size:10px;text-transform:uppercase;letter-spacing:.3px;color:var(--t3);padding:6px 9px 3px;font-weight:700}
+.card-move-item{background:none;border:none;text-align:left;padding:7px 9px;font-size:12px;color:var(--t1);cursor:pointer;border-radius:6px;display:flex;align-items:center;gap:7px;font-family:var(--body);width:100%}
+.card-move-item:hover{background:var(--bg)}
+.card-move-item .dot{width:7px;height:7px;border-radius:50%;flex:none}
 .card-etq{width:32px;height:4px;border-radius:3px;margin-bottom:7px}
 .card-titulo{font-size:13px;font-weight:600;color:var(--t1);margin-bottom:4px;word-break:break-word}
 .card-info{font-size:11px;color:var(--t2);display:flex;align-items:center;gap:4px;margin-top:3px}
@@ -459,7 +468,7 @@ function renderBoard(){
       + '</div>'
       + '<div class="coluna-lista" id="lista-'+col.id+'">';
     cardsColuna.forEach(function(card){
-      html += renderCard(card);
+      html += renderCard(card, col.nome);
     });
     html += '</div>'
       + '<div style="padding:6px 8px 10px"><button class="btn-add-card" onclick="abrirModalCard(null,'+col.id+')"><svg viewBox="0 0 24 24" style="width:13px;height:13px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> Adicionar card</button></div>'
@@ -469,8 +478,21 @@ function renderBoard(){
   board.innerHTML = html;
 }
 
-function renderCard(card){
-  var h = '<div class="card" draggable="true" data-card-id="'+card.id+'" ondragstart="onDragStartCard(event,'+card.id+')" ondragend="onDragEndCard(event)" ontouchstart="onCardTouchStart(event,'+card.id+')" ontouchmove="onCardTouchMove(event)" ontouchend="onCardTouchEnd(event)" onclick="abrirModalCard('+card.id+')">';
+function renderCard(card, colNome){
+  // Cards na coluna "Leads" ganham um menu de atalho (⋮) pra pular direto
+  // pra qualquer outra etapa (ex: Pausado, Perdido), sem precisar arrastar.
+  var ehLeads = (colNome||'').trim().toLowerCase() === 'leads';
+  var h = '<div class="card'+(ehLeads?' card-com-menu':'')+'" draggable="true" data-card-id="'+card.id+'" ondragstart="onDragStartCard(event,'+card.id+')" ondragend="onDragEndCard(event)" ontouchstart="onCardTouchStart(event,'+card.id+')" ontouchmove="onCardTouchMove(event)" ontouchend="onCardTouchEnd(event)" onclick="abrirModalCard('+card.id+')">';
+  if(ehLeads){
+    h += '<button class="card-menu-btn" title="Mover para outra etapa" onclick="toggleCardMenu(event,'+card.id+')"><svg viewBox="0 0 24 24" style="width:14px;height:14px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round"><circle cx="12" cy="5" r="1.4" fill="currentColor" stroke="none"/><circle cx="12" cy="12" r="1.4" fill="currentColor" stroke="none"/><circle cx="12" cy="19" r="1.4" fill="currentColor" stroke="none"/></svg></button>';
+    h += '<div class="card-move-menu" id="card-menu-'+card.id+'" onclick="event.stopPropagation()">';
+    h += '<div class="card-move-label">Mover para</div>';
+    colunas.forEach(function(destCol){
+      if(destCol.id === card.coluna_id) return;
+      h += '<button class="card-move-item" onclick="moverCardViaMenu(event,'+card.id+','+destCol.id+')"><span class="dot" style="background:'+(destCol.cor||'#5b6b5c')+'"></span>'+esc(destCol.nome)+'</button>';
+    });
+    h += '</div>';
+  }
   if(card.etiqueta_cor) h += '<div class="card-etq" style="background:'+card.etiqueta_cor+'"></div>';
   h += '<div class="card-titulo">'+esc(card.titulo)+'</div>';
   if(card.origem === 'site') h += '<div style="display:inline-flex;align-items:center;gap:4px;font-size:9px;font-weight:700;color:#00838f;background:#e0f7fa;border:1px solid #80deea;padding:2px 7px;border-radius:20px;margin-bottom:5px">🌐 Veio do site</div>';
@@ -484,6 +506,24 @@ function renderCard(card){
 }
 
 function esc(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+
+/* ── MENU RÁPIDO DO CARD (⋮) — mover direto pra qualquer etapa ── */
+function toggleCardMenu(ev, cardId){
+  ev.stopPropagation();
+  var menu = document.getElementById('card-menu-'+cardId);
+  if(!menu) return;
+  var estavaAberto = menu.classList.contains('open');
+  document.querySelectorAll('.card-move-menu.open').forEach(function(m){ m.classList.remove('open'); });
+  if(!estavaAberto) menu.classList.add('open');
+}
+function moverCardViaMenu(ev, cardId, colunaId){
+  ev.stopPropagation();
+  document.querySelectorAll('.card-move-menu.open').forEach(function(m){ m.classList.remove('open'); });
+  moverCardParaColuna(cardId, colunaId);
+}
+document.addEventListener('click', function(){
+  document.querySelectorAll('.card-move-menu.open').forEach(function(m){ m.classList.remove('open'); });
+});
 
 /* ── DRAG AND DROP ── */
 function onDragStartCard(ev, cardId){
