@@ -263,11 +263,11 @@ h1,h2,h3,.kl,.fl,.mo-sec h3,.mo-head h2,.kcard-h,.tp-chart-card h3,.mi-l{font-fa
 
 <!-- ══ MODAL EVOLUÇÃO DO CAPITAL SOB GESTÃO ══ -->
 <div id="csg-overlay" class="mo-overlay">
-  <div class="mo-box" style="max-width:900px">
-    <div class="mo-head">
+  <div class="mo-box" id="csg-box" style="max-width:900px">
+    <div class="mo-head" id="csg-head" style="cursor:move" onmousedown="csgArrastarIniciar(event)" ontouchstart="csgArrastarIniciar(event)" title="Arraste para mover esta janela">
       <div>
         <h2>Evolução do Capital sob Gestão</h2>
-        <p>Saldo mês a mês, lançado manualmente por empresa (Meta x Realizado)</p>
+        <p>Saldo mês a mês, lançado manualmente por empresa (Meta x Realizado) — arraste esta janela pelo título para movê-la</p>
       </div>
       <button class="mo-close" onclick="closeCapitalGrafico()">&times;</button>
     </div>
@@ -1876,9 +1876,49 @@ function invEscTp(s){return String(s==null?'':s).replace(/&/g,'&amp;').replace(/
 var CSG_CHART=null;
 function openCapitalGrafico(){
   document.getElementById('csg-overlay').style.display='block';
+  csgResetarPosicao();
   csgRenderGrafico();
 }
 function closeCapitalGrafico(){ document.getElementById('csg-overlay').style.display='none'; }
+
+/* Janela arrastável (mouse e touch) — só o "mo-head" (título) é a alça.
+   Guardamos o deslocamento atual em CSG_DRAG pra continuar arrastando de
+   onde parou, e resetamos ao reabrir o modal (csgResetarPosicao). */
+var CSG_DRAG = {x:0, y:0, arrastando:false, startX:0, startY:0};
+function csgResetarPosicao(){
+  CSG_DRAG.x = 0; CSG_DRAG.y = 0;
+  var box = document.getElementById('csg-box');
+  if(box) box.style.transform = 'none';
+}
+function csgArrastarIniciar(ev){
+  // Não inicia arrasto se o clique foi no botão de fechar.
+  if(ev.target.closest && ev.target.closest('.mo-close')) return;
+  var p = ev.touches ? ev.touches[0] : ev;
+  CSG_DRAG.arrastando = true;
+  CSG_DRAG.startX = p.clientX - CSG_DRAG.x;
+  CSG_DRAG.startY = p.clientY - CSG_DRAG.y;
+  document.addEventListener('mousemove', csgArrastarMover);
+  document.addEventListener('mouseup', csgArrastarSoltar);
+  document.addEventListener('touchmove', csgArrastarMover, {passive:false});
+  document.addEventListener('touchend', csgArrastarSoltar);
+  if(ev.cancelable) ev.preventDefault();
+}
+function csgArrastarMover(ev){
+  if(!CSG_DRAG.arrastando) return;
+  var p = ev.touches ? ev.touches[0] : ev;
+  CSG_DRAG.x = p.clientX - CSG_DRAG.startX;
+  CSG_DRAG.y = p.clientY - CSG_DRAG.startY;
+  var box = document.getElementById('csg-box');
+  if(box) box.style.transform = 'translate('+CSG_DRAG.x+'px,'+CSG_DRAG.y+'px)';
+  if(ev.cancelable) ev.preventDefault();
+}
+function csgArrastarSoltar(){
+  CSG_DRAG.arrastando = false;
+  document.removeEventListener('mousemove', csgArrastarMover);
+  document.removeEventListener('mouseup', csgArrastarSoltar);
+  document.removeEventListener('touchmove', csgArrastarMover);
+  document.removeEventListener('touchend', csgArrastarSoltar);
+}
 
 function csgPopularFiltroEmpresa(){
   var sel=document.getElementById('csg-f-empresa');
@@ -1914,24 +1954,45 @@ function csgRenderGrafico(){
   var tc = dark ? '#8fa088' : '#5b6b5c';
   var gc = dark ? 'rgba(255,255,255,.07)' : 'rgba(0,0,0,.06)';
 
-  // Uma linha por mês/ano — soma entre empresas quando "Todas" está selecionado
-  // (consolidado); com uma empresa específica, cada mês já tem 1 linha só.
-  var porChave={};
+  // Duas colunas por mês: FIM do mês (o próprio saldo lançado naquela linha)
+  // e INÍCIO do mês (saldo da mesma empresa no mês anterior — sempre buscado
+  // no histórico completo, não só no que está sendo exibido aqui). Quando
+  // "Todas" está selecionado, soma entre empresas em cada uma das duas colunas.
+  var fimPorChave={}, inicioPorChave={};
   linhas.forEach(function(r){
     var mesNum=mesTextoParaNumero(r.mes);
     if(!mesNum||!r.ano) return;
     var chave=String(r.ano).padStart(4,'0')+'-'+String(mesNum).padStart(2,'0');
-    porChave[chave]=(porChave[chave]||0)+n(r.capital_sob_gestao.realizado);
+    fimPorChave[chave]=(fimPorChave[chave]||0)+n(r.capital_sob_gestao.realizado);
+
+    var mesAnt=mesNum-1, anoAnt=Number(r.ano);
+    if(mesAnt<1){ mesAnt=12; anoAnt--; }
+    var mesAntTxt=MESES_PT[mesAnt-1];
+    var eNorm=normEmpresa(r.empresa);
+    var linhaAnterior=null;
+    mxrData.forEach(function(r2){
+      if(normEmpresa(r2.empresa)===eNorm && String(r2.ano)===String(anoAnt) && String(r2.mes).trim().toLowerCase()===mesAntTxt) linhaAnterior=r2;
+    });
+    var valorAnterior = linhaAnterior && linhaAnterior.capital_sob_gestao ? linhaAnterior.capital_sob_gestao.realizado : null;
+    if(valorAnterior!==null && valorAnterior!==undefined && valorAnterior!==''){
+      inicioPorChave[chave]=(inicioPorChave[chave]||0)+n(valorAnterior);
+    }
   });
-  var chavesOrdenadas=Object.keys(porChave).sort();
+
+  var chavesOrdenadas=Object.keys(fimPorChave).sort();
   document.getElementById('csg-vazio').style.display='none';
   var labels=chavesOrdenadas.map(function(k){
     var partes=k.split('-'); return MABR[parseInt(partes[1],10)-1]+'/'+partes[0].slice(-2);
   });
-  var dataArr=chavesOrdenadas.map(function(k){ return porChave[k]; });
+  var dataInicio=chavesOrdenadas.map(function(k){ return inicioPorChave[k]!==undefined ? inicioPorChave[k] : null; });
+  var dataFim=chavesOrdenadas.map(function(k){ return fimPorChave[k]; });
 
-  var nomeSerie = empFiltro || 'Total (todas as empresas)';
-  var datasets=[{ label:nomeSerie, data:dataArr, backgroundColor:tpCor(0), borderRadius:3 }];
+  var corInicio = tpCor(1);
+  var corFim = tpCor(0);
+  var datasets=[
+    { label:'Início do mês', data:dataInicio, backgroundColor:corInicio, borderRadius:3 },
+    { label:'Fim do mês', data:dataFim, backgroundColor:corFim, borderRadius:3 }
+  ];
 
   if(CSG_CHART) CSG_CHART.destroy();
   CSG_CHART=new Chart(document.getElementById('csg-c-evolucao'),{
@@ -1941,7 +2002,7 @@ function csgRenderGrafico(){
       responsive:true, maintainAspectRatio:false,
       plugins:{
         legend:{display:false},
-        tooltip:{callbacks:{label:function(c){return ' '+c.dataset.label+': '+fM(c.raw);}}}
+        tooltip:{callbacks:{label:function(c){return ' '+c.dataset.label+': '+(c.raw===null?'sem lançamento no mês anterior':fM(c.raw));}}}
       },
       scales:{
         x:{ticks:{color:tc,font:{size:11}},grid:{display:false}},
@@ -1951,7 +2012,8 @@ function csgRenderGrafico(){
   });
 
   document.getElementById('csg-legenda').innerHTML =
-    '<div class="tp-legenda-item"><span class="tp-legenda-dot" style="background:'+tpCor(0)+'"></span>'+invEscTp(nomeSerie)+'</div>';
+    '<div class="tp-legenda-item"><span class="tp-legenda-dot" style="background:'+corInicio+'"></span>Início do mês</div>'+
+    '<div class="tp-legenda-item"><span class="tp-legenda-dot" style="background:'+corFim+'"></span>Fim do mês'+(empFiltro?' — '+invEscTp(empFiltro):' — consolidado, todas as empresas')+'</div>';
 }
 
 /* ── GRÁFICOS ── */
