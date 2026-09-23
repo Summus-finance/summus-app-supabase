@@ -231,8 +231,8 @@ h1,h2,h3,.kl,.fl,.mo-sec h3,.mo-head h2,.kcard-h,.tp-chart-card h3,.mi-l{font-fa
 
 <!-- ══ MODAL INVESTIDORES DO PERÍODO ══ -->
 <div id="invp-overlay" class="mo-overlay">
-  <div class="mo-box" style="max-width:700px">
-    <div class="mo-head">
+  <div class="mo-box" id="invp-box" style="max-width:700px">
+    <div class="mo-head" style="cursor:move" onmousedown="arrastarIniciar(event,'invp-box')" ontouchstart="arrastarIniciar(event,'invp-box')" title="Arraste para mover esta janela">
       <div>
         <h2>Investidores do Período</h2>
         <p id="invp-subtitulo">Aportes dentro do período e empresas selecionados no filtro acima</p>
@@ -254,9 +254,15 @@ h1,h2,h3,.kl,.fl,.mo-sec h3,.mo-head h2,.kcard-h,.tp-chart-card h3,.mi-l{font-fa
         </table>
       </div>
     </div>
-    <div style="text-align:right;margin-top:10px;padding-top:10px;border-top:1px solid var(--bd)">
-      <span style="font-size:12px;color:var(--t3)">Total: </span>
-      <span id="invp-total" style="font-size:14px;font-weight:700;color:var(--t1)">R$ 0,00</span>
+    <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-top:10px;padding-top:10px;border-top:1px solid var(--bd)">
+      <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+        <span id="invp-badge-qtd" style="display:inline-flex;align-items:center;gap:6px;font-size:11.5px;font-weight:700;color:var(--br);background:var(--bg);border:1px solid var(--bd);padding:4px 11px;border-radius:20px">0 investidores</span>
+        <span id="invp-badge-aportes" style="display:inline-flex;align-items:center;gap:6px;font-size:11.5px;font-weight:700;color:var(--br);background:var(--bg);border:1px solid var(--bd);padding:4px 11px;border-radius:20px">0 aportes</span>
+      </div>
+      <div>
+        <span style="font-size:12px;color:var(--t3)">Total: </span>
+        <span id="invp-total" style="font-size:14px;font-weight:700;color:var(--t1)">R$ 0,00</span>
+      </div>
     </div>
   </div>
 </div>
@@ -264,7 +270,7 @@ h1,h2,h3,.kl,.fl,.mo-sec h3,.mo-head h2,.kcard-h,.tp-chart-card h3,.mi-l{font-fa
 <!-- ══ MODAL EVOLUÇÃO DO CAPITAL SOB GESTÃO ══ -->
 <div id="csg-overlay" class="mo-overlay">
   <div class="mo-box" id="csg-box" style="max-width:900px">
-    <div class="mo-head" id="csg-head" style="cursor:move" onmousedown="csgArrastarIniciar(event)" ontouchstart="csgArrastarIniciar(event)" title="Arraste para mover esta janela">
+    <div class="mo-head" id="csg-head" style="cursor:move" onmousedown="arrastarIniciar(event,'csg-box')" ontouchstart="arrastarIniciar(event,'csg-box')" title="Arraste para mover esta janela">
       <div>
         <h2>Evolução do Capital sob Gestão</h2>
         <p>Saldo mês a mês, lançado manualmente por empresa (Meta x Realizado) — arraste esta janela pelo título para movê-la</p>
@@ -285,8 +291,8 @@ h1,h2,h3,.kl,.fl,.mo-sec h3,.mo-head h2,.kcard-h,.tp-chart-card h3,.mi-l{font-fa
 
 <!-- ══ MODAL GRÁFICO DO FATURAMENTO ══ -->
 <div id="fatg-overlay" class="mo-overlay">
-  <div class="mo-box" style="max-width:900px">
-    <div class="mo-head">
+  <div class="mo-box" id="fatg-box" style="max-width:900px">
+    <div class="mo-head" style="cursor:move" onmousedown="arrastarIniciar(event,'fatg-box')" ontouchstart="arrastarIniciar(event,'fatg-box')" title="Arraste para mover esta janela">
       <div>
         <h2>Composição do Faturamento</h2>
         <p id="fatg-subtitulo">Sem categoria selecionada: mostra a composição do período filtrado. Selecione uma ou mais categorias para comparar mês a mês.</p>
@@ -302,8 +308,8 @@ h1,h2,h3,.kl,.fl,.mo-sec h3,.mo-head h2,.kcard-h,.tp-chart-card h3,.mi-l{font-fa
 
 <!-- ══ MODAL DESPESAS DETALHADAS ══ -->
 <div id="tp-overlay" class="mo-overlay">
-  <div class="mo-box" style="max-width:1280px">
-    <div class="mo-head">
+  <div class="mo-box" id="tp-box" style="max-width:1280px">
+    <div class="mo-head" style="cursor:move" onmousedown="arrastarIniciar(event,'tp-box')" ontouchstart="arrastarIniciar(event,'tp-box')" title="Arraste para mover esta janela">
       <div>
         <h2>Despesas Detalhadas</h2>
         <p>Títulos pagos e quitados — dados da planilha</p>
@@ -1438,6 +1444,7 @@ var FATG_CATEGORIAS = [
 function openFaturamentoGrafico(){
   FATG_SEL = {};
   document.getElementById('fatg-overlay').style.display='block';
+  resetarPosicaoJanela('fatg-box');
   fatgRenderChips();
   fatgRender();
 }
@@ -1570,6 +1577,7 @@ function openInvestidoresPeriodo(){
   var s=getSession();
   if(!s || !s.acessaInvestidores){ alert('Você não tem permissão para ver a lista de investidores.'); return; }
   document.getElementById('invp-overlay').style.display='block';
+  resetarPosicaoJanela('invp-box');
 
   var periodo = periodoDoFiltro(mxrFilt);
   if(!periodo.min){
@@ -1626,6 +1634,8 @@ function invpRenderTabela(){
     sub.textContent='Selecione um período no filtro acima para ver os investidores';
     document.getElementById('invp-tbody').innerHTML='<tr><td colspan="4" style="padding:16px;text-align:center;color:var(--t3)">Nenhum período selecionado</td></tr>';
     document.getElementById('invp-total').textContent=fM(0);
+    document.getElementById('invp-badge-qtd').textContent='0 investidores';
+    document.getElementById('invp-badge-aportes').textContent='0 aportes';
     return;
   }
   sub.textContent='Aportes de '+MABR[periodo.min.mes-1]+'/'+periodo.min.ano+(periodo.max&&periodo.max.mes!==periodo.min.mes?' a '+MABR[periodo.max.mes-1]+'/'+periodo.max.ano:'')+' — respeitando o filtro de empresa acima';
@@ -1641,6 +1651,8 @@ function invpRenderTabela(){
   if(!lista.length){
     document.getElementById('invp-tbody').innerHTML='<tr><td colspan="4" style="padding:16px;text-align:center;color:var(--t3)">Nenhum aporte encontrado para o período/empresa selecionados</td></tr>';
     document.getElementById('invp-total').textContent=fM(0);
+    document.getElementById('invp-badge-qtd').textContent='0 investidores';
+    document.getElementById('invp-badge-aportes').textContent='0 aportes';
     return;
   }
 
@@ -1659,6 +1671,14 @@ function invpRenderTabela(){
   });
   var total=lista.reduce(function(s,r){return s+n(r.valor);},0);
   document.getElementById('invp-total').textContent=fM(total);
+
+  // Badge: quantidade de investidores DISTINTOS na lista (um investidor pode
+  // ter mais de um aporte no período, mas conta uma vez só aqui).
+  var nomesUnicos={};
+  lista.forEach(function(r){ var nm=String(r.nome_investidor||'').trim().toLowerCase(); if(nm) nomesUnicos[nm]=1; });
+  var qtdInvestidores=Object.keys(nomesUnicos).length;
+  document.getElementById('invp-badge-qtd').textContent = qtdInvestidores+(qtdInvestidores===1?' investidor':' investidores');
+  document.getElementById('invp-badge-aportes').textContent = lista.length+(lista.length===1?' aporte':' aportes');
 
   document.getElementById('invp-tbody').innerHTML=lista.map(function(r,i){
     var bg=i%2===0?'var(--cd)':'var(--bg)';
@@ -1701,6 +1721,7 @@ function openTitulosPagos(){
   var s=getSession();
   if(!s || !s.acessaDespesas){ alert('Você não tem permissão para acessar as Despesas Detalhadas.'); return; }
   document.getElementById('tp-overlay').style.display='block';
+  resetarPosicaoJanela('tp-box');
   if(!TP_LOADED){ tpCarregarDados(); } else { tpAplicarFiltros(); }
 }
 function closeTitulosPagos(){ document.getElementById('tp-overlay').style.display='none'; }
@@ -1876,48 +1897,52 @@ function invEscTp(s){return String(s==null?'':s).replace(/&/g,'&amp;').replace(/
 var CSG_CHART=null;
 function openCapitalGrafico(){
   document.getElementById('csg-overlay').style.display='block';
-  csgResetarPosicao();
+  resetarPosicaoJanela('csg-box');
   csgRenderGrafico();
 }
 function closeCapitalGrafico(){ document.getElementById('csg-overlay').style.display='none'; }
 
-/* Janela arrastável (mouse e touch) — só o "mo-head" (título) é a alça.
-   Guardamos o deslocamento atual em CSG_DRAG pra continuar arrastando de
-   onde parou, e resetamos ao reabrir o modal (csgResetarPosicao). */
-var CSG_DRAG = {x:0, y:0, arrastando:false, startX:0, startY:0};
-function csgResetarPosicao(){
-  CSG_DRAG.x = 0; CSG_DRAG.y = 0;
-  var box = document.getElementById('csg-box');
+/* ── JANELAS ARRASTÁVEIS (mouse e touch) ──────────────────────────
+   Genérico pra qualquer modal: arraste-a segurando o "mo-head" (título).
+   Cada janela guarda seu próprio deslocamento (por id da .mo-box), então
+   arrastar uma não afeta a posição das outras. Resetamos a posição sempre
+   que o modal é reaberto (chamando resetarPosicaoJanela no open*). */
+var JANELA_DRAG = {};   // boxId -> {x,y} deslocamento atual
+var DRAG_ATUAL = null;  // {boxId, startX, startY} enquanto está arrastando
+function resetarPosicaoJanela(boxId){
+  JANELA_DRAG[boxId] = {x:0, y:0};
+  var box = document.getElementById(boxId);
   if(box) box.style.transform = 'none';
 }
-function csgArrastarIniciar(ev){
-  // Não inicia arrasto se o clique foi no botão de fechar.
+function arrastarIniciar(ev, boxId){
+  // Não inicia arrasto se o clique foi no botão de fechar (ou em cima dele).
   if(ev.target.closest && ev.target.closest('.mo-close')) return;
+  if(!JANELA_DRAG[boxId]) JANELA_DRAG[boxId] = {x:0, y:0};
+  var estado = JANELA_DRAG[boxId];
   var p = ev.touches ? ev.touches[0] : ev;
-  CSG_DRAG.arrastando = true;
-  CSG_DRAG.startX = p.clientX - CSG_DRAG.x;
-  CSG_DRAG.startY = p.clientY - CSG_DRAG.y;
-  document.addEventListener('mousemove', csgArrastarMover);
-  document.addEventListener('mouseup', csgArrastarSoltar);
-  document.addEventListener('touchmove', csgArrastarMover, {passive:false});
-  document.addEventListener('touchend', csgArrastarSoltar);
+  DRAG_ATUAL = {boxId:boxId, startX: p.clientX - estado.x, startY: p.clientY - estado.y};
+  document.addEventListener('mousemove', arrastarMover);
+  document.addEventListener('mouseup', arrastarSoltar);
+  document.addEventListener('touchmove', arrastarMover, {passive:false});
+  document.addEventListener('touchend', arrastarSoltar);
   if(ev.cancelable) ev.preventDefault();
 }
-function csgArrastarMover(ev){
-  if(!CSG_DRAG.arrastando) return;
+function arrastarMover(ev){
+  if(!DRAG_ATUAL) return;
   var p = ev.touches ? ev.touches[0] : ev;
-  CSG_DRAG.x = p.clientX - CSG_DRAG.startX;
-  CSG_DRAG.y = p.clientY - CSG_DRAG.startY;
-  var box = document.getElementById('csg-box');
-  if(box) box.style.transform = 'translate('+CSG_DRAG.x+'px,'+CSG_DRAG.y+'px)';
+  var estado = JANELA_DRAG[DRAG_ATUAL.boxId];
+  estado.x = p.clientX - DRAG_ATUAL.startX;
+  estado.y = p.clientY - DRAG_ATUAL.startY;
+  var box = document.getElementById(DRAG_ATUAL.boxId);
+  if(box) box.style.transform = 'translate('+estado.x+'px,'+estado.y+'px)';
   if(ev.cancelable) ev.preventDefault();
 }
-function csgArrastarSoltar(){
-  CSG_DRAG.arrastando = false;
-  document.removeEventListener('mousemove', csgArrastarMover);
-  document.removeEventListener('mouseup', csgArrastarSoltar);
-  document.removeEventListener('touchmove', csgArrastarMover);
-  document.removeEventListener('touchend', csgArrastarSoltar);
+function arrastarSoltar(){
+  DRAG_ATUAL = null;
+  document.removeEventListener('mousemove', arrastarMover);
+  document.removeEventListener('mouseup', arrastarSoltar);
+  document.removeEventListener('touchmove', arrastarMover);
+  document.removeEventListener('touchend', arrastarSoltar);
 }
 
 function csgPopularFiltroEmpresa(){
