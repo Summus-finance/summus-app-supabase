@@ -214,6 +214,17 @@ tbody td{padding:9px 14px;border-bottom:1px solid var(--bd);color:var(--t1);vert
     </div>
     <label class="mo-perm-item" style="margin-bottom:4px"><input type="checkbox" id="ed-ativo"> Ativo (desmarque pra bloquear o acesso sem apagar o usuário)</label>
 
+    <div id="ed-secao-senha" style="margin-top:18px;padding-top:16px;border-top:1px solid var(--bd)">
+      <label style="display:block;font-size:11px;font-weight:700;color:var(--t2);text-transform:uppercase;letter-spacing:.3px;margin-bottom:6px">Redefinir senha (só administradores veem isso)</label>
+      <p style="font-size:12px;color:var(--t3);margin-bottom:10px">Troca a senha da pessoa imediatamente, sem mexer nas permissões acima. Deixe em branco se não quiser trocar.</p>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <input id="ed-nova-senha" type="text" placeholder="Nova senha (mín. 6 caracteres)" style="flex:1;min-width:180px">
+        <button type="button" class="btn sec" onclick="gerarSenhaAleatoria('ed-nova-senha')">Gerar</button>
+        <button type="button" id="ed-btn-redefinir-senha" class="btn sec" onclick="redefinirSenhaUsuario()">Redefinir senha</button>
+      </div>
+      <div class="mo-msg" id="ed-senha-msg" style="margin-top:8px"></div>
+    </div>
+
     <div class="mo-msg" id="ed-msg"></div>
     <div class="mo-foot">
       <button class="btn sec" onclick="fecharModalEditar()">Cancelar</button>
@@ -330,9 +341,49 @@ function abrirModalEditar(id){
   document.getElementById('ed-crm').checked = !!u.acessa_crm;
   document.getElementById('ed-ativo').checked = !!u.ativo;
   document.getElementById('ed-msg').style.display = 'none';
+  // Redefinir senha: reforço extra além da tela inteira já ser admin-only —
+  // só mostra essa seção se o usuário logado for mesmo admin.
+  document.getElementById('ed-secao-senha').style.display = (perfilAtual && perfilAtual.admin) ? 'block' : 'none';
+  document.getElementById('ed-nova-senha').value = '';
+  document.getElementById('ed-senha-msg').style.display = 'none';
   document.getElementById('editar-overlay').style.display = 'block';
 }
 function fecharModalEditar(){ document.getElementById('editar-overlay').style.display = 'none'; }
+
+// Redefine a senha do usuário sendo editado. Usa uma Edge Function própria
+// (chave mestra, do lado do servidor) — o mesmo padrão já usado pra criar
+// usuário, então o navegador nunca vê a chave de serviço.
+function redefinirSenhaUsuario(){
+  if(!EDITANDO_ID) return;
+  var msg = document.getElementById('ed-senha-msg');
+  var novaSenha = document.getElementById('ed-nova-senha').value;
+
+  if(!novaSenha){ msg.textContent='Digite (ou gere) uma nova senha primeiro.'; msg.className='mo-msg err'; msg.style.display='block'; return; }
+  if(novaSenha.length < 6){ msg.textContent='A senha precisa ter pelo menos 6 caracteres.'; msg.className='mo-msg err'; msg.style.display='block'; return; }
+
+  var btn = document.getElementById('ed-btn-redefinir-senha');
+  btn.disabled = true; btn.textContent = 'Redefinindo...';
+  msg.style.display = 'none';
+
+  sb.functions.invoke('admin-redefinir-senha', { body: { user_id: EDITANDO_ID, nova_senha: novaSenha } }).then(function(res){
+    if(res.error){
+      extrairMensagemDeErroEdge(res.error, function(motivo){
+        btn.disabled = false; btn.textContent = 'Redefinir senha';
+        msg.textContent = 'Erro: ' + motivo; msg.className = 'mo-msg err'; msg.style.display = 'block';
+      });
+      return;
+    }
+    btn.disabled = false; btn.textContent = 'Redefinir senha';
+    var erroNoCorpo = res.data && res.data.error;
+    if(erroNoCorpo){
+      msg.textContent = 'Erro: ' + erroNoCorpo; msg.className = 'mo-msg err'; msg.style.display = 'block';
+      return;
+    }
+    msg.textContent = 'Senha redefinida com sucesso! Repasse a nova senha com segurança pra pessoa.';
+    msg.className = 'mo-msg ok'; msg.style.display = 'block';
+    document.getElementById('ed-nova-senha').value = '';
+  });
+}
 
 function salvarEdicao(){
   if(!EDITANDO_ID) return;
@@ -366,11 +417,11 @@ function salvarEdicao(){
 }
 
 /* ── MODAL: NOVO USUÁRIO (único caminho que usa a Edge Function / chave mestra) ── */
-function gerarSenhaAleatoria(){
+function gerarSenhaAleatoria(alvoId){
   var chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789!@#$%';
   var senha = '';
   for(var i=0;i<14;i++) senha += chars.charAt(Math.floor(Math.random()*chars.length));
-  document.getElementById('nu-senha').value = senha;
+  document.getElementById(alvoId || 'nu-senha').value = senha;
 }
 function abrirModalNovoUsuario(){
   document.getElementById('nu-nome').value='';
@@ -426,17 +477,52 @@ function criarUsuario(){
 
   // Chama a Edge Function — é ela que verifica admin de verdade e usa a
   // chave mestra, tudo do lado do servidor. O navegador nunca vê a chave.
+  //
+  // IMPORTANTE: quando a Edge Function responde com um status de erro
+  // (400/401/409/500...), o supabase-js NÃO devolve o corpo/motivo real que
+  // a função mandou — ele só seta res.error com a mensagem genérica "Edge
+  // Function returned a non-2xx status code" e joga o Response de verdade
+  // dentro de res.error.context. Era por isso que só aparecia essa mensagem
+  // genérica, escondendo o motivo real (ex: e-mail já cadastrado, chave de
+  // serviço não configurada, etc.). Agora a gente lê esse contexto pra
+  // mostrar o motivo de verdade.
   sb.functions.invoke('admin-criar-usuario', { body: payload }).then(function(res){
+    if(res.error){
+      extrairMensagemDeErroEdge(res.error, function(motivo){
+        btn.disabled = false; btn.textContent = 'Criar usuário';
+        msg.textContent = 'Erro: ' + motivo; msg.className = 'mo-msg err'; msg.style.display = 'block';
+      });
+      return;
+    }
     btn.disabled = false; btn.textContent = 'Criar usuário';
-    var erro = (res.error && res.error.message) || (res.data && res.data.error);
-    if(erro){
-      msg.textContent = 'Erro: ' + erro; msg.className = 'mo-msg err'; msg.style.display = 'block';
+    var erroNoCorpo = res.data && res.data.error;
+    if(erroNoCorpo){
+      msg.textContent = 'Erro: ' + erroNoCorpo; msg.className = 'mo-msg err'; msg.style.display = 'block';
       return;
     }
     msg.textContent = 'Usuário criado com sucesso! Anote a senha e repasse com segurança pra pessoa.';
     msg.className = 'mo-msg ok'; msg.style.display = 'block';
     carregarUsuarios();
     setTimeout(fecharModalNovoUsuario, 1800);
+  });
+}
+
+// Tenta ler o motivo real de um erro devolvido por uma Edge Function.
+// res.error.context é o Response HTTP de verdade que a função mandou; a
+// gente tenta ler como JSON (formato {error:"..."} ou {message:"..."}),
+// e se não der, cai pro texto puro, e só em último caso usa a mensagem
+// genérica do supabase-js.
+function extrairMensagemDeErroEdge(erro, callback){
+  var contexto = erro && erro.context;
+  if(!contexto || typeof contexto.clone !== 'function'){ callback(erro.message || 'Erro desconhecido.'); return; }
+  contexto.clone().json().then(function(corpo){
+    callback((corpo && (corpo.error || corpo.message)) || erro.message);
+  }).catch(function(){
+    contexto.clone().text().then(function(txt){
+      callback(txt || erro.message);
+    }).catch(function(){
+      callback(erro.message || 'Erro desconhecido.');
+    });
   });
 }
 
