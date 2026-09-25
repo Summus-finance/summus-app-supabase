@@ -306,6 +306,23 @@ h1,h2,h3,.kl,.fl,.mo-sec h3,.mo-head h2,.kcard-h,.tp-chart-card h3,.mi-l{font-fa
   </div>
 </div>
 
+<!-- ══ MODAL GRÁFICO DE RECEITAS LIQUIDADAS ══ -->
+<div id="recg-overlay" class="mo-overlay">
+  <div class="mo-box" id="recg-box" style="max-width:900px">
+    <div class="mo-head" style="cursor:move" onmousedown="arrastarIniciar(event,'recg-box')" ontouchstart="arrastarIniciar(event,'recg-box')" title="Arraste para mover esta janela">
+      <div>
+        <h2>Composição de Receitas Liquidadas</h2>
+        <p id="recg-subtitulo">Sem categoria selecionada: mostra a composição do período filtrado. Selecione uma ou mais categorias para comparar mês a mês.</p>
+      </div>
+      <button class="mo-close" onclick="closeReceitasGrafico()">&times;</button>
+    </div>
+    <div id="recg-chips" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:14px"></div>
+    <div style="height:320px"><canvas id="recg-canvas"></canvas></div>
+    <div id="recg-legenda" class="tp-legenda-evol" style="justify-content:center;flex-wrap:wrap"></div>
+    <div id="recg-vazio" class="empty" style="display:none">Sem dados para exibir.</div>
+  </div>
+</div>
+
 <!-- ══ MODAL DESPESAS DETALHADAS ══ -->
 <div id="tp-overlay" class="mo-overlay">
   <div class="mo-box" id="tp-box" style="max-width:1280px">
@@ -966,7 +983,7 @@ function itemReceitas(real, meta, recDesagio, recProrrogacao, recRedesconto, rec
     badgeLinha('RECUP. TARIFAS', recRecupTarifas, '#e0f7fa', '#80deea', '#00838f')+
     badgeLinha('OUTRAS RECEITAS', recOutras, '#ede7f6', '#b39ddb', '#5e35b1', 'Outras receitas financeiras e receitas de rendimentos bancário')+
     badgeLinha('DESCONTOS', recDescontos, '#eef2f5', '#c3ccd3', '#57697a');
-  return '<div class="mi" style="padding-bottom:6px;margin-bottom:7px"><div class="mi-h"><span class="mi-l">Receitas</span>'+(meta>0?'<span class="mi-badge '+cls+'">'+pctReal+'%'+(pctReal>=100?' ✓':'')+'</span>':'')+'</div>'+
+  return '<div class="mi" style="padding-bottom:6px;margin-bottom:7px"><div class="mi-h"><span class="mi-l">Receitas Liquidadas'+recEyeBtnHtml()+'</span>'+(meta>0?'<span class="mi-badge '+cls+'">'+pctReal+'%'+(pctReal>=100?' ✓':'')+'</span>':'')+'</div>'+
     (meta>0?'<div class="bar-w"><div class="bar" style="width:'+pct+'%;background:'+barColor(cls)+'"></div></div>':'')+
     '<div class="mi-v"><span><span class="real">'+fmt(real)+'</span>'+(meta>0?'<span class="sep">de</span>'+fmt(meta):'')+'</span>'+(meta>0?'<span>'+faltaTxt+'</span>':'')+'</div>'+
     '<div style="display:grid;grid-template-columns:1fr 1fr;gap:0 10px;margin-top:5px">'+
@@ -1208,6 +1225,11 @@ function renderKPIs(d){
   var recOutras=somaCampo(d,'outras_receitas');
   var recRecupTarifas=somaCampo(d,'receita_recuperacao_tarifas');
   var recDescontos=somaCampo(d,'descontos_de_receitas');
+  REC_ATUAL = { // usado pelo modal "Composição de Receitas Liquidadas" (visão padrão, sem categoria selecionada)
+    desagio: recLiquidada, prorrogacao: recProrrogacao, redesconto: recRedesconto, multas: recMultas,
+    juros_atraso: recJurosAtraso, iof: recIofTotal, recuperacao_tarifas: recRecupTarifas,
+    outras: recOutras, descontos: recDescontos
+  };
   var recReal = recLiquidada + recIofTotal + recProrrogacao + recRedesconto + recMultas + recJurosAtraso + recRecupTarifas + recOutras + recDescontos;
   var ced=valorPorEmpresaOuSoma(d,'cedentes', somarCedentes);
   var totalCedOperado=somaCampo(d,'total_cedentes_operado');
@@ -1401,6 +1423,12 @@ function fatEyeBtnHtml(){
   return '<button onclick="event.stopPropagation();openFaturamentoGrafico()" title="Ver gráfico do faturamento" style="background:none;border:none;cursor:pointer;padding:0;margin-left:6px;vertical-align:middle;color:#8fa5bb;display:inline-flex;align-items:center"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg></button>';
 }
 
+// Botão de olho do card Receitas Liquidadas — abre o gráfico de composição/evolução
+// (mesmo padrão do botão de olho do Faturamento, acima).
+function recEyeBtnHtml(){
+  return '<button onclick="event.stopPropagation();openReceitasGrafico()" title="Ver gráfico de receitas liquidadas" style="background:none;border:none;cursor:pointer;padding:0;margin-left:6px;vertical-align:middle;color:#8fa5bb;display:inline-flex;align-items:center"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg></button>';
+}
+
 function tpEyeBtnHtml(){
   var s=getSession();
   if(!s || !s.acessaDespesas) return '';
@@ -1562,6 +1590,160 @@ function fatgRenderEvolucaoMensal(selecionadas){
     }
   });
   document.getElementById('fatg-legenda').innerHTML='';
+}
+
+/* ═══════════════════════════════════════════════════════════
+   MODAL "COMPOSIÇÃO DE RECEITAS LIQUIDADAS" — mesmíssima lógica do modal
+   de Faturamento acima (chips de categoria, pizza sem seleção, barras de
+   evolução mensal com seleção), só que em cima dos campos de Receitas.
+   Diferença técnica: no Faturamento os campos vêm aninhados em
+   "row.faturamento.<chave>"; em Receitas os campos são soltos na raiz da
+   linha (row.receitas_realizado, row.receita_iof...), por isso o mapa
+   RECG_CAMPO_ROW abaixo faz essa tradução na hora de montar a evolução.
+═══════════════════════════════════════════════════════════ */
+var REC_ATUAL = null;
+var RECG_SEL = {};
+var RECG_CHART = null;
+var RECG_CATEGORIAS = [
+  {chave:'desagio', label:'Deságio', cor:'#1d7a5c'},
+  {chave:'prorrogacao', label:'Prorrogações', cor:'#00695c'},
+  {chave:'redesconto', label:'Redesconto', cor:'#303f9f'},
+  {chave:'multas', label:'Multas', cor:'#8e44ad'},
+  {chave:'juros_atraso', label:'Juros Atraso', cor:'#a32d2d'},
+  {chave:'iof', label:'IOF', cor:'#8a6416'},
+  {chave:'recuperacao_tarifas', label:'Recup. Tarifas', cor:'#00838f'},
+  {chave:'outras', label:'Outras Receitas', cor:'#5e35b1'},
+  {chave:'descontos', label:'Descontos', cor:'#57697a'}
+];
+// Tradução chave da categoria -> campo solto na linha do meta_x_realizado
+// (ver mxrNestify: os campos de receita não são aninhados como faturamento).
+var RECG_CAMPO_ROW = {
+  desagio:'receitas_realizado', prorrogacao:'receita_prorrogacao', redesconto:'receita_redesconto',
+  multas:'receita_multas', juros_atraso:'receitas_juros_atraso', iof:'receita_iof',
+  recuperacao_tarifas:'receita_recuperacao_tarifas', outras:'outras_receitas', descontos:'descontos_de_receitas'
+};
+
+function openReceitasGrafico(){
+  RECG_SEL = {};
+  document.getElementById('recg-overlay').style.display='block';
+  resetarPosicaoJanela('recg-box');
+  recgRenderChips();
+  recgRender();
+}
+function closeReceitasGrafico(){ document.getElementById('recg-overlay').style.display='none'; }
+
+function recgRenderChips(){
+  var box=document.getElementById('recg-chips');
+  box.innerHTML = RECG_CATEGORIAS.map(function(c){
+    var ativo = !!RECG_SEL[c.chave];
+    return '<button type="button" onclick="recgToggleCategoria(\''+c.chave+'\')" style="font-size:11px;font-weight:700;padding:5px 12px;border-radius:20px;cursor:pointer;background:'+(ativo?c.cor:'var(--bg)')+';color:'+(ativo?'#fff':'var(--t2)')+';border:1px solid '+(ativo?c.cor:'var(--bd)')+'">'+c.label+'</button>';
+  }).join('');
+}
+function recgToggleCategoria(chave){
+  if(RECG_SEL[chave]) delete RECG_SEL[chave];
+  else RECG_SEL[chave]=true;
+  recgRenderChips();
+  recgRender();
+}
+
+function recgRender(){
+  var selecionadas = RECG_CATEGORIAS.filter(function(c){ return RECG_SEL[c.chave]; });
+  if(selecionadas.length===0) recgRenderComposicao();
+  else recgRenderEvolucaoMensal(selecionadas);
+}
+
+// Sem categoria selecionada: pizza com a composição do período filtrado na tela.
+function recgRenderComposicao(){
+  document.getElementById('recg-subtitulo').textContent = 'Composição do período filtrado na tela (sem categoria selecionada).';
+  document.getElementById('recg-legenda').innerHTML='';
+  if(!REC_ATUAL || typeof Chart==='undefined'){
+    document.getElementById('recg-vazio').style.display='block';
+    if(RECG_CHART){ RECG_CHART.destroy(); RECG_CHART=null; }
+    return;
+  }
+  var labels=[], valores=[], cores=[];
+  RECG_CATEGORIAS.forEach(function(c){
+    var v = n(REC_ATUAL[c.chave]);
+    if(v!==0){ labels.push(c.label); valores.push(Math.abs(v)); cores.push(c.cor); }
+  });
+  if(!valores.length){
+    document.getElementById('recg-vazio').style.display='block';
+    if(RECG_CHART){ RECG_CHART.destroy(); RECG_CHART=null; }
+    return;
+  }
+  document.getElementById('recg-vazio').style.display='none';
+  if(RECG_CHART) RECG_CHART.destroy();
+  RECG_CHART = new Chart(document.getElementById('recg-canvas'), {
+    type:'doughnut',
+    data:{ labels:labels, datasets:[{ data:valores, backgroundColor:cores, borderWidth:0 }] },
+    options:{
+      responsive:true, maintainAspectRatio:false,
+      plugins:{
+        legend:{ position:'right', labels:{ color: dark?'#8fa088':'#5b6b5c', font:{size:11} } },
+        tooltip:{ callbacks:{ label:function(ctx){ return ' '+ctx.label+': '+fM(ctx.raw); } } }
+      }
+    }
+  });
+}
+
+// Com uma ou mais categorias selecionadas: evolução mês a mês, respeitando
+// a empresa do filtro principal (mas ignorando mês/ano, pra comparar no tempo).
+function recgRenderEvolucaoMensal(selecionadas){
+  document.getElementById('recg-subtitulo').textContent = 'Evolução mês a mês da(s) categoria(s) selecionada(s).';
+  var empresasAtivas = Object.keys(sE);
+  var base = empresasAtivas.length ? mxrData.filter(function(r){ return empresasAtivas.indexOf(r.empresa)>=0; }) : mxrData;
+
+  var porMes = {}; // "AAAA-MM" -> {chave: soma}
+  base.forEach(function(r){
+    var idxMes = MESES_PT.indexOf(String(r.mes||'').toLowerCase());
+    if(idxMes<0 || !r.ano) return;
+    var chave = r.ano+'-'+String(idxMes+1).padStart(2,'0');
+    if(!porMes[chave]) porMes[chave]={};
+    selecionadas.forEach(function(c){
+      porMes[chave][c.chave] = (porMes[chave][c.chave]||0) + n(r[RECG_CAMPO_ROW[c.chave]]);
+    });
+  });
+
+  var chavesOrdenadas = Object.keys(porMes).sort();
+  if(!chavesOrdenadas.length || typeof Chart==='undefined'){
+    document.getElementById('recg-vazio').style.display='block';
+    document.getElementById('recg-legenda').innerHTML='';
+    if(RECG_CHART){ RECG_CHART.destroy(); RECG_CHART=null; }
+    return;
+  }
+  document.getElementById('recg-vazio').style.display='none';
+
+  var labels = chavesOrdenadas.map(function(k){
+    var p=k.split('-'); return MABR[parseInt(p[1])-1]+'/'+p[0].substring(2);
+  });
+  var datasets = selecionadas.map(function(c){
+    return {
+      label: c.label,
+      data: chavesOrdenadas.map(function(k){ return porMes[k][c.chave]||0; }),
+      backgroundColor: c.cor,
+      borderRadius: 4
+    };
+  });
+
+  var tc = dark?'#8fa088':'#5b6b5c';
+  var gc = dark?'rgba(255,255,255,.07)':'rgba(0,0,0,.06)';
+  if(RECG_CHART) RECG_CHART.destroy();
+  RECG_CHART = new Chart(document.getElementById('recg-canvas'), {
+    type:'bar',
+    data:{ labels:labels, datasets:datasets },
+    options:{
+      responsive:true, maintainAspectRatio:false,
+      plugins:{
+        legend:{ display: selecionadas.length>1, position:'top', labels:{ color:tc, font:{size:11} } },
+        tooltip:{ callbacks:{ label:function(ctx){ return ' '+ctx.dataset.label+': '+fM(ctx.raw); } } }
+      },
+      scales:{
+        x:{ ticks:{ color:tc, font:{size:10} }, grid:{ color:gc } },
+        y:{ ticks:{ color:tc, font:{size:10}, callback:function(v){ return fM(v); } }, grid:{ color:gc } }
+      }
+    }
+  });
+  document.getElementById('recg-legenda').innerHTML='';
 }
 
 var INVP_DATA = null; // cache: null = ainda não carregado
@@ -2230,15 +2412,15 @@ var CAMPOS_FORM = [
   {tipo:'unico', chave:'fat_recuperacao_tarifas', label:'Faturamento — Recuperação de Tarifas', secao:'Faturamento', formato:'money'},
   {tipo:'unico', chave:'faturamento_descontos', label:'Faturamento — Descontos (negativo)', secao:'Faturamento', formato:'money'},
   {tipo:'par', chave:'despesa', label:'Despesa', secao:'Faturamento', formato:'money'},
-  {tipo:'unico', chave:'receitas_realizado', label:'Receita — Deságio', secao:'Receitas', formato:'money'},
-  {tipo:'unico', chave:'receita_prorrogacao', label:'Receita — Prorrogação', secao:'Receitas', formato:'money'},
-  {tipo:'unico', chave:'receita_redesconto', label:'Receita — Redesconto', secao:'Receitas', formato:'money'},
-  {tipo:'unico', chave:'receita_multas', label:'Receita — Multas', secao:'Receitas', formato:'money'},
-  {tipo:'unico', chave:'receitas_juros_atraso', label:'Receita — Juros de Atraso', secao:'Receitas', formato:'money'},
-  {tipo:'unico', chave:'receita_iof', label:'Receita — IOF', secao:'Receitas', formato:'money'},
-  {tipo:'unico', chave:'receita_recuperacao_tarifas', label:'Receita — Recuperação de Tarifas', secao:'Receitas', formato:'money'},
-  {tipo:'unico', chave:'outras_receitas', label:'Outras Receitas (financeiras/rendimentos bancários)', secao:'Receitas', formato:'money'},
-  {tipo:'unico', chave:'descontos_de_receitas', label:'Descontos de Receitas (negativo)', secao:'Receitas', formato:'money'},
+  {tipo:'unico', chave:'receitas_realizado', label:'Receita — Deságio', secao:'Receitas Liquidadas', formato:'money'},
+  {tipo:'unico', chave:'receita_prorrogacao', label:'Receita — Prorrogação', secao:'Receitas Liquidadas', formato:'money'},
+  {tipo:'unico', chave:'receita_redesconto', label:'Receita — Redesconto', secao:'Receitas Liquidadas', formato:'money'},
+  {tipo:'unico', chave:'receita_multas', label:'Receita — Multas', secao:'Receitas Liquidadas', formato:'money'},
+  {tipo:'unico', chave:'receitas_juros_atraso', label:'Receita — Juros de Atraso', secao:'Receitas Liquidadas', formato:'money'},
+  {tipo:'unico', chave:'receita_iof', label:'Receita — IOF', secao:'Receitas Liquidadas', formato:'money'},
+  {tipo:'unico', chave:'receita_recuperacao_tarifas', label:'Receita — Recuperação de Tarifas', secao:'Receitas Liquidadas', formato:'money'},
+  {tipo:'unico', chave:'outras_receitas', label:'Outras Receitas (financeiras/rendimentos bancários)', secao:'Receitas Liquidadas', formato:'money'},
+  {tipo:'unico', chave:'descontos_de_receitas', label:'Descontos de Receitas (negativo)', secao:'Receitas Liquidadas', formato:'money'},
   {tipo:'unico', chave:'resultado_meta', label:'Resultado do mês — Meta', secao:'Faturamento', formato:'money'},
 
   // TAXA
