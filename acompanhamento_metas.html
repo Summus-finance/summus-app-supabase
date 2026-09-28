@@ -591,6 +591,7 @@ function mxrNestify(row){
     receita_iof: row.receita_iof,
     receita_prorrogacao: row.receita_prorrogacao,
     receita_redesconto: row.receita_redesconto,
+    receita_refinanciamento: row.receita_refinanciamento,
     receita_multas: row.receita_multas,
     receitas_juros_atraso: row.receitas_juros_atraso,
     outras_receitas: row.outras_receitas,
@@ -957,7 +958,7 @@ function itemFaturamentoPrincipal(real, meta, fatOp, fatPr, fatRd, fatRf, fatMu,
 // Item "Receitas": mostra o total (Receita Liquidada + IOF somados) na
 // barra principal, e os dois valores que compõem esse total como badges
 // discretos abaixo — mesmo padrão visual do card de Faturamento.
-function itemReceitas(real, meta, recDesagio, recProrrogacao, recRedesconto, recMultas, recJurosAtraso, recIof, recRecupTarifas, recOutras, recDescontos, fmt){
+function itemReceitas(real, meta, recDesagio, recProrrogacao, recRedesconto, recRefinanciamento, recMultas, recJurosAtraso, recIof, recRecupTarifas, recOutras, recDescontos, fmt){
   var pctReal = meta>0?Math.round(real/meta*100):0;
   var pct=Math.min(Math.max(pctReal,0),100);
   var cls=badgeCls(pctReal);
@@ -976,13 +977,14 @@ function itemReceitas(real, meta, recDesagio, recProrrogacao, recRedesconto, rec
     badgeLinha('DESÁGIO', recDesagio, '#e4f3ea', '#a8d8bf', '#1d7a5c')+
     badgeLinha('PRORROGAÇÕES', recProrrogacao, '#e0f2f1', '#80cbc4', '#00695c')+
     badgeLinha('REDESCONTO', recRedesconto, '#e8eaf6', '#9fa8da', '#303f9f')+
-    badgeLinha('MULTAS', recMultas, '#f3eafe', '#c9a8ea', '#8e44ad')+
-    badgeLinha('JUROS ATRASO', recJurosAtraso, '#fce8e8', '#e09090', '#a32d2d');
+    badgeLinha('REFINANCIAMENTO', recRefinanciamento, '#e3f4fb', '#9ecfe6', '#1a6f8f')+
+    badgeLinha('MULTAS', recMultas, '#f3eafe', '#c9a8ea', '#8e44ad');
   var colDireita =
+    badgeLinha('JUROS ATRASO', recJurosAtraso, '#fce8e8', '#e09090', '#a32d2d')+
     badgeLinha('IOF', recIof, '#fdf3e3', '#e0c07a', '#8a6416')+
     badgeLinha('RECUP. TARIFAS', recRecupTarifas, '#e0f7fa', '#80deea', '#00838f')+
-    badgeLinha('OUTRAS RECEITAS', recOutras, '#ede7f6', '#b39ddb', '#5e35b1', 'Outras receitas financeiras e receitas de rendimentos bancário')+
-    badgeLinha('DESCONTOS', recDescontos, '#eef2f5', '#c3ccd3', '#57697a');
+    badgeLinha('DESCONTOS', recDescontos, '#eef2f5', '#c3ccd3', '#57697a')+
+    badgeLinha('OUTRAS RECEITAS', recOutras, '#ede7f6', '#b39ddb', '#5e35b1', 'Outras receitas financeiras e receitas de rendimentos bancário');
   return '<div class="mi" style="padding-bottom:6px;margin-bottom:7px"><div class="mi-h"><span class="mi-l">Receitas Liquidadas'+recEyeBtnHtml()+'</span>'+(meta>0?'<span class="mi-badge '+cls+'">'+pctReal+'%'+(pctReal>=100?' ✓':'')+'</span>':'')+'</div>'+
     (meta>0?'<div class="bar-w"><div class="bar" style="width:'+pct+'%;background:'+barColor(cls)+'"></div></div>':'')+
     '<div class="mi-v"><span><span class="real">'+fmt(real)+'</span>'+(meta>0?'<span class="sep">de</span>'+fmt(meta):'')+'</span>'+(meta>0?'<span>'+faltaTxt+'</span>':'')+'</div>'+
@@ -1220,17 +1222,18 @@ function renderKPIs(d){
   var recIofTotal=somaCampo(d,'receita_iof');
   var recProrrogacao=somaCampo(d,'receita_prorrogacao');
   var recRedesconto=somaCampo(d,'receita_redesconto');
+  var recRefinanciamento=somaCampo(d,'receita_refinanciamento');
   var recMultas=somaCampo(d,'receita_multas');
   var recJurosAtraso=somaCampo(d,'receitas_juros_atraso');
   var recOutras=somaCampo(d,'outras_receitas');
   var recRecupTarifas=somaCampo(d,'receita_recuperacao_tarifas');
   var recDescontos=somaCampo(d,'descontos_de_receitas');
   REC_ATUAL = { // usado pelo modal "Composição de Receitas Liquidadas" (visão padrão, sem categoria selecionada)
-    desagio: recLiquidada, prorrogacao: recProrrogacao, redesconto: recRedesconto, multas: recMultas,
+    desagio: recLiquidada, prorrogacao: recProrrogacao, redesconto: recRedesconto, refinanciamento: recRefinanciamento, multas: recMultas,
     juros_atraso: recJurosAtraso, iof: recIofTotal, recuperacao_tarifas: recRecupTarifas,
     outras: recOutras, descontos: recDescontos
   };
-  var recReal = recLiquidada + recIofTotal + recProrrogacao + recRedesconto + recMultas + recJurosAtraso + recRecupTarifas + recOutras + recDescontos;
+  var recReal = recLiquidada + recIofTotal + recProrrogacao + recRedesconto + recRefinanciamento + recMultas + recJurosAtraso + recRecupTarifas + recOutras + recDescontos;
   var ced=valorPorEmpresaOuSoma(d,'cedentes', somarCedentes);
   var totalCedOperado=somaCampo(d,'total_cedentes_operado');
   var novosCed=valorPorEmpresaOuSoma(d,'novos_cedentes', somarNovosCedentes);
@@ -1354,7 +1357,7 @@ function renderKPIs(d){
 
     '<div class="kcard"><div class="kcard-h">📄 FATURAMENTO</div><div class="kcard-b">' +
       itemFaturamentoPrincipal(fat.total, fat.meta, fat.operacoes, fat.prorrogacoes, fat.redesconto, fat.refinanciamento, fat.multas, fat.juros_atraso, fat.iof, fat.recuperacao_tarifas, fat.descontos) +
-      itemReceitas(recReal, recMeta, recLiquidada, recProrrogacao, recRedesconto, recMultas, recJurosAtraso, recIofTotal, recRecupTarifas, recOutras, recDescontos, fM) +
+      itemReceitas(recReal, recMeta, recLiquidada, recProrrogacao, recRedesconto, recRefinanciamento, recMultas, recJurosAtraso, recIofTotal, recRecupTarifas, recOutras, recDescontos, fM) +
       itemDespesa('Despesa do mês', desp.real, desp.meta, tpEyeBtnHtml()) +
       itemResultado(resultadoReal, resultadoMetaSoma) +
     '</div></div>' +
@@ -1608,6 +1611,7 @@ var RECG_CATEGORIAS = [
   {chave:'desagio', label:'Deságio', cor:'#1d7a5c'},
   {chave:'prorrogacao', label:'Prorrogações', cor:'#00695c'},
   {chave:'redesconto', label:'Redesconto', cor:'#303f9f'},
+  {chave:'refinanciamento', label:'Refinanciamento', cor:'#1a6f8f'},
   {chave:'multas', label:'Multas', cor:'#8e44ad'},
   {chave:'juros_atraso', label:'Juros Atraso', cor:'#a32d2d'},
   {chave:'iof', label:'IOF', cor:'#8a6416'},
@@ -1618,7 +1622,7 @@ var RECG_CATEGORIAS = [
 // Tradução chave da categoria -> campo solto na linha do meta_x_realizado
 // (ver mxrNestify: os campos de receita não são aninhados como faturamento).
 var RECG_CAMPO_ROW = {
-  desagio:'receitas_realizado', prorrogacao:'receita_prorrogacao', redesconto:'receita_redesconto',
+  desagio:'receitas_realizado', prorrogacao:'receita_prorrogacao', redesconto:'receita_redesconto', refinanciamento:'receita_refinanciamento',
   multas:'receita_multas', juros_atraso:'receitas_juros_atraso', iof:'receita_iof',
   recuperacao_tarifas:'receita_recuperacao_tarifas', outras:'outras_receitas', descontos:'descontos_de_receitas'
 };
@@ -2415,6 +2419,7 @@ var CAMPOS_FORM = [
   {tipo:'unico', chave:'receitas_realizado', label:'Receita — Deságio', secao:'Receitas Liquidadas', formato:'money'},
   {tipo:'unico', chave:'receita_prorrogacao', label:'Receita — Prorrogação', secao:'Receitas Liquidadas', formato:'money'},
   {tipo:'unico', chave:'receita_redesconto', label:'Receita — Redesconto', secao:'Receitas Liquidadas', formato:'money'},
+  {tipo:'unico', chave:'receita_refinanciamento', label:'Receita — Refinanciamento', secao:'Receitas Liquidadas', formato:'money'},
   {tipo:'unico', chave:'receita_multas', label:'Receita — Multas', secao:'Receitas Liquidadas', formato:'money'},
   {tipo:'unico', chave:'receitas_juros_atraso', label:'Receita — Juros de Atraso', secao:'Receitas Liquidadas', formato:'money'},
   {tipo:'unico', chave:'receita_iof', label:'Receita — IOF', secao:'Receitas Liquidadas', formato:'money'},
