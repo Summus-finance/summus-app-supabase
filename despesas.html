@@ -106,6 +106,7 @@ tbody td{padding:8px 12px;border-bottom:1px solid var(--bd);color:var(--t1)}
       <div><h1>Gestão de Despesas</h1><p>Lançamento e controle de títulos pagos</p></div>
     </div>
     <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+      <button id="btn-exportar" class="tbtn" style="display:none;border:none" onclick="exportarExcel()" title="Exporta o que está listado (respeitando filtros e ordenação)"><svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>Exportar Excel</button>
       <button id="btn-importar" class="tbtn" style="display:none;border:none" onclick="abrirModalImportar()"><svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>Importar planilha</button>
       <button id="btn-nova" class="tbtn" style="display:none;border:none" onclick="abrirModalDespesa()"><svg viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>Nova despesa</button>
       <a href="painel.html" style="display:inline-flex;align-items:center;gap:6px;background:rgba(255,255,255,.18);border:1px solid rgba(255,255,255,.35);border-radius:8px;padding:7px 14px;font-size:13px;color:#fff;text-decoration:none;font-family:var(--body)"><svg viewBox="0 0 24 24" style="width:14px;height:14px;fill:none;stroke:#fff;stroke-width:2;stroke-linecap:round;stroke-linejoin:round"><polyline points="15 18 9 12 15 6"/></svg>Página Inicial</a>
@@ -128,11 +129,20 @@ tbody td{padding:8px 12px;border-bottom:1px solid var(--bd);color:var(--t1)}
     <div class="kpi"><div class="kpi-lbl">Registros</div><div class="kpi-val" id="k-qtd">0</div></div>
   </div>
 
+  <div id="barra-massa" style="display:none;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;background:var(--cd);border:1px solid var(--bd);border-radius:12px;padding:10px 14px;margin-bottom:10px">
+    <div style="font-size:13px;color:var(--t1)"><b id="massa-qtd">0</b> <span id="massa-qtd-txt">selecionada</span> &middot; <span id="massa-total" style="font-family:var(--num);font-weight:600"></span></div>
+    <div style="display:flex;gap:8px">
+      <button class="btn sec" onclick="limparSelecao()">Limpar seleção</button>
+      <button class="btn danger" id="massa-excluir" onclick="excluirSelecionadas()">Excluir selecionadas</button>
+    </div>
+  </div>
+
   <div class="tbl-wrap">
     <div class="tbl-scroll">
       <table>
         <thead>
           <tr>
+            <th style="width:38px;cursor:default;text-align:center"><input type="checkbox" id="sel-todas" title="Selecionar todas as despesas listadas" onchange="toggleSelecionarTodas(this.checked)" style="cursor:pointer;width:15px;height:15px"></th>
             <th onclick="ordenar('data')">Data <span id="sort-data"></span></th>
             <th onclick="ordenar('fornecedor')">Fornecedor <span id="sort-fornecedor"></span></th>
             <th onclick="ordenar('categoria')">Categoria <span id="sort-categoria"></span></th>
@@ -142,7 +152,7 @@ tbody td{padding:8px 12px;border-bottom:1px solid var(--bd);color:var(--t1)}
             <th>Ações</th>
           </tr>
         </thead>
-        <tbody id="tbody"><tr><td colspan="7" class="empty">Carregando...</td></tr></tbody>
+        <tbody id="tbody"><tr><td colspan="8" class="empty">Carregando...</td></tr></tbody>
       </table>
     </div>
   </div>
@@ -254,6 +264,8 @@ var FILTRADAS = [];
 var SORT = {campo:'data', dir:'desc'};
 var EDITANDO_ID = null;
 var IMP_LINHAS = null;
+var ORDENADAS = [];      // lista exatamente como aparece na tela (filtrada + ordenada) — usada na exportação
+var SELECIONADAS = {};   // id -> true (lançamentos marcados no checkbox pra exclusão em massa)
 
 function n(v){var x=parseFloat(String(v||0).toString().replace(',','.'));return isNaN(x)?0:x;}
 function fR(v){return 'R$ '+n(v).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2});}
@@ -324,6 +336,11 @@ function aplicarFiltros(){
     if(fAno && String(ma.ano)!==String(fAno)) return false;
     return true;
   });
+  // Só ficam marcadas as despesas que continuam visíveis com o filtro atual —
+  // assim ninguém exclui em massa algo que está escondido fora da tela.
+  var visiveis = {};
+  FILTRADAS.forEach(function(r){ visiveis[String(r.id)] = true; });
+  Object.keys(SELECIONADAS).forEach(function(id){ if(!visiveis[id]) delete SELECIONADAS[id]; });
   renderTudo();
 }
 
@@ -339,7 +356,9 @@ function renderTudo(){
 
   var tbody=document.getElementById('tbody');
   if(!FILTRADAS.length){
-    tbody.innerHTML='<tr><td colspan="7" class="empty">Nenhuma despesa encontrada para os filtros selecionados.</td></tr>';
+    tbody.innerHTML='<tr><td colspan="8" class="empty">Nenhuma despesa encontrada para os filtros selecionados.</td></tr>';
+    ORDENADAS = [];
+    atualizarBarraSelecao();
     return;
   }
   var ord = FILTRADAS.slice().sort(function(a,b){
@@ -349,13 +368,16 @@ function renderTudo(){
     if(va>vb) return SORT.dir==='asc'?1:-1;
     return 0;
   });
+  ORDENADAS = ord;
   var podeEditar = perfilAtual && perfilAtual.acessa_gestao_despesas;
   tbody.innerHTML = ord.map(function(r,i){
     var bg = i%2===0 ? 'var(--cd)' : 'var(--bg)';
     var acoes = podeEditar
       ? '<button class="btn sec" style="padding:4px 10px;font-size:11px" onclick="abrirModalDespesa(\''+r.id+'\')">Editar</button>'
       : '—';
+    var marcada = SELECIONADAS[String(r.id)] ? ' checked' : '';
     return '<tr style="background:'+bg+'">'+
+      '<td style="text-align:center"><input type="checkbox" class="sel-linha" data-id="'+esc(r.id)+'"'+marcada+' onchange="toggleSelecao(this.dataset.id,this.checked)" style="cursor:pointer;width:15px;height:15px"></td>'+
       '<td style="white-space:nowrap">'+fData(r.data)+'</td>'+
       '<td>'+esc(r.fornecedor||'—')+'</td>'+
       '<td style="color:var(--t2)">'+esc(r.categoria||'—')+'</td>'+
@@ -365,6 +387,7 @@ function renderTudo(){
       '<td>'+acoes+'</td>'+
     '</tr>';
   }).join('');
+  atualizarBarraSelecao();
 }
 
 function ordenar(campo){
@@ -442,6 +465,115 @@ function excluirDespesa(){
     fecharModalDespesa();
     carregarDados();
   });
+}
+
+/* ── SELEÇÃO EM MASSA (checkbox) + EXCLUSÃO EM MASSA ── */
+function toggleSelecao(id, marcado){
+  if(marcado) SELECIONADAS[String(id)] = true;
+  else delete SELECIONADAS[String(id)];
+  atualizarBarraSelecao();
+}
+function toggleSelecionarTodas(marcado){
+  // "Todas" = todas as despesas atualmente listadas (respeita os filtros da tela).
+  ORDENADAS.forEach(function(r){
+    if(marcado) SELECIONADAS[String(r.id)] = true;
+    else delete SELECIONADAS[String(r.id)];
+  });
+  document.querySelectorAll('#tbody .sel-linha').forEach(function(cb){ cb.checked = !!marcado; });
+  atualizarBarraSelecao();
+}
+function limparSelecao(){
+  SELECIONADAS = {};
+  document.querySelectorAll('#tbody .sel-linha').forEach(function(cb){ cb.checked = false; });
+  atualizarBarraSelecao();
+}
+function atualizarBarraSelecao(){
+  var ids = Object.keys(SELECIONADAS);
+  var barra = document.getElementById('barra-massa');
+  var podeEditar = perfilAtual && perfilAtual.acessa_gestao_despesas;
+  var total = 0;
+  ORDENADAS.forEach(function(r){ if(SELECIONADAS[String(r.id)]) total += n(r.valor); });
+  document.getElementById('massa-qtd').textContent = ids.length;
+  document.getElementById('massa-qtd-txt').textContent = ids.length===1 ? 'selecionada' : 'selecionadas';
+  document.getElementById('massa-total').textContent = fR(total);
+  barra.style.display = (podeEditar && ids.length) ? 'flex' : 'none';
+
+  // estado do checkbox "selecionar todas" (marcado / indeterminado / vazio)
+  var todas = document.getElementById('sel-todas');
+  var marcadasVisiveis = ORDENADAS.filter(function(r){ return SELECIONADAS[String(r.id)]; }).length;
+  todas.checked = ORDENADAS.length>0 && marcadasVisiveis===ORDENADAS.length;
+  todas.indeterminate = marcadasVisiveis>0 && marcadasVisiveis<ORDENADAS.length;
+}
+
+function excluirSelecionadas(){
+  var s = perfilAtual;
+  if(!s || !s.acessa_gestao_despesas){ alert('Você não tem permissão para excluir despesas.'); return; }
+  var ids = Object.keys(SELECIONADAS);
+  if(!ids.length) return;
+
+  var total = 0;
+  TODAS.forEach(function(r){ if(SELECIONADAS[String(r.id)]) total += n(r.valor); });
+  var msg = 'Excluir '+ids.length+(ids.length===1?' despesa selecionada':' despesas selecionadas')+' (total '+fR(total)+')?\n\nEssa ação não pode ser desfeita.';
+  if(!confirm(msg)) return;
+
+  var btn = document.getElementById('massa-excluir');
+  btn.disabled = true; btn.textContent = 'Excluindo...';
+
+  // Exclui em lotes pequenos (evita URL enorme quando há muitas linhas marcadas).
+  // .select('id') devolve as linhas que realmente foram apagadas — assim a gente
+  // confere se o banco apagou tudo mesmo (e não só "fingiu" por causa de permissão).
+  var lotes = [];
+  for(var i=0;i<ids.length;i+=50) lotes.push(ids.slice(i,i+50));
+  var apagadas = 0, erro = null;
+
+  function proximo(idx){
+    if(idx>=lotes.length || erro){ finalizar(); return; }
+    sb.from('titulos_pagos').delete().in('id', lotes[idx]).select('id').then(function(res){
+      if(res.error){ erro = res.error.message; }
+      else { apagadas += (res.data||[]).length; }
+      proximo(idx+1);
+    });
+  }
+  function finalizar(){
+    btn.disabled = false; btn.textContent = 'Excluir selecionadas';
+    SELECIONADAS = {};
+    if(erro){
+      alert('Erro ao excluir: '+erro+'\n\nForam excluídas '+apagadas+' de '+ids.length+' despesas antes do erro.');
+    } else if(apagadas < ids.length){
+      alert('Atenção: só '+apagadas+' de '+ids.length+' despesas foram excluídas. As demais não puderam ser apagadas (possível falta de permissão no banco).');
+    }
+    carregarDados();
+  }
+  proximo(0);
+}
+
+/* ── EXPORTAR PARA EXCEL ── */
+// Exporta exatamente o que está na listagem (mesmos filtros e mesma ordenação),
+// nas mesmas colunas: Data, Fornecedor, Categoria, Empresa, Valor, Obs.
+function exportarExcel(){
+  if(typeof XLSX === 'undefined'){ alert('Biblioteca de Excel não carregada. Verifique sua conexão e recarregue a página.'); return; }
+  if(!ORDENADAS.length){ alert('Não há despesas na listagem para exportar.'); return; }
+
+  var linhas = [['Data','Fornecedor','Categoria','Empresa','Valor','Obs.']];
+  ORDENADAS.forEach(function(r){
+    var celData = '';
+    var m = String(r.data||'').match(/^(\d{4})-(\d{2})-(\d{2})/);
+    if(m){
+      // data de verdade no Excel (serial), sem risco de fuso deslocar 1 dia
+      var serial = Math.floor(Date.UTC(+m[1], +m[2]-1, +m[3]) / 86400000) + 25569;
+      celData = {t:'n', v:serial, z:'dd/mm/yyyy'};
+    }
+    linhas.push([celData, r.fornecedor||'', r.categoria||'', r.empresa||'', {t:'n', v:n(r.valor), z:'#,##0.00'}, r.obs||'']);
+  });
+
+  var ws = XLSX.utils.aoa_to_sheet(linhas);
+  ws['!cols'] = [{wch:12},{wch:32},{wch:22},{wch:14},{wch:16},{wch:40}];
+  var wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'Despesas');
+
+  var hoje = new Date();
+  var stamp = hoje.getFullYear()+'-'+String(hoje.getMonth()+1).padStart(2,'0')+'-'+String(hoje.getDate()).padStart(2,'0');
+  XLSX.writeFile(wb, 'despesas_'+stamp+'.xlsx');
 }
 
 /* ── MODAL IMPORTAR PLANILHA ── */
@@ -562,6 +694,7 @@ sb.auth.getSession().then(function(res){
       return;
     }
     document.getElementById('app').style.display='block';
+    document.getElementById('btn-exportar').style.display='inline-flex';
     document.getElementById('btn-importar').style.display='inline-flex';
     document.getElementById('btn-nova').style.display='inline-flex';
     carregarCorSistema();
