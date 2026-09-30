@@ -303,6 +303,7 @@ h1,h2,h3,.kl,.fl,.mo-sec h3,.mo-head h2,.kcard-h,.tp-chart-card h3,.mi-l{font-fa
     <div style="height:320px"><canvas id="fatg-canvas"></canvas></div>
     <div id="fatg-legenda" class="tp-legenda-evol" style="justify-content:center;flex-wrap:wrap"></div>
     <div id="fatg-vazio" class="empty" style="display:none">Sem dados para exibir.</div>
+    <div id="fatg-badge-total" style="display:none;text-align:center;margin-top:14px"></div>
   </div>
 </div>
 
@@ -320,6 +321,7 @@ h1,h2,h3,.kl,.fl,.mo-sec h3,.mo-head h2,.kcard-h,.tp-chart-card h3,.mi-l{font-fa
     <div style="height:320px"><canvas id="recg-canvas"></canvas></div>
     <div id="recg-legenda" class="tp-legenda-evol" style="justify-content:center;flex-wrap:wrap"></div>
     <div id="recg-vazio" class="empty" style="display:none">Sem dados para exibir.</div>
+    <div id="recg-badge-total" style="display:none;text-align:center;margin-top:14px"></div>
   </div>
 </div>
 
@@ -1449,6 +1451,20 @@ function csgEyeBtnHtml(){
    (getInvestidores) e a mesma permissão (acessaInvestidores) que já
    protegem essa informação na tela de Movimentação.
 ═══════════════════════════════════════════════════════════ */
+// Badge de total exibido no rodapé dos modais de composição (Faturamento e
+// Receitas Liquidadas) — soma tudo que está desenhado no gráfico de colunas
+// no momento (todas as barras, de todos os meses/categorias mostrados).
+// Escondido na visão de pizza (sem seleção), onde esse total já aparece no
+// card principal por trás do modal.
+function renderBadgeTotalPeriodo(elId, soma, qtdMeses){
+  var el = document.getElementById(elId);
+  if(!el) return;
+  if(!qtdMeses){ el.style.display='none'; return; }
+  el.style.display='block';
+  el.innerHTML = '<span style="display:inline-flex;align-items:center;gap:8px;font-size:13px;font-weight:700;color:var(--t1);background:var(--bg);border:1px solid var(--bd);padding:8px 18px;border-radius:20px">'+
+    'Total dos '+qtdMeses+(qtdMeses===1?' mês exibido':' meses exibidos')+': <span style="font-family:var(--num);color:var(--br)">'+fM(soma)+'</span></span>';
+}
+
 /* ═══════════════════════════════════════════════════════════
    MODAL "COMPOSIÇÃO DO FATURAMENTO" — sem categoria selecionada,
    mostra a composição (pizza) do período filtrado na tela. Com uma ou
@@ -1459,6 +1475,7 @@ function csgEyeBtnHtml(){
 ═══════════════════════════════════════════════════════════ */
 var FAT_ATUAL = null;
 var FATG_SEL = {}; // categorias marcadas (chave -> true)
+var FATG_TOTAL = false; // true = opção "Total" selecionada (consolidado, ignora categorias)
 var FATG_CHART = null;
 var FATG_CATEGORIAS = [
   {chave:'operacoes', label:'Deságio', cor:'#1d7a5c'},
@@ -1474,6 +1491,7 @@ var FATG_CATEGORIAS = [
 
 function openFaturamentoGrafico(){
   FATG_SEL = {};
+  FATG_TOTAL = false;
   document.getElementById('fatg-overlay').style.display='block';
   resetarPosicaoJanela('fatg-box');
   fatgRenderChips();
@@ -1483,12 +1501,22 @@ function closeFaturamentoGrafico(){ document.getElementById('fatg-overlay').styl
 
 function fatgRenderChips(){
   var box=document.getElementById('fatg-chips');
-  box.innerHTML = FATG_CATEGORIAS.map(function(c){
+  var corTotal = '#0c4b33';
+  var totalBtn = '<button type="button" onclick="fatgToggleTotal()" style="font-size:11px;font-weight:700;padding:5px 12px;border-radius:20px;cursor:pointer;background:'+(FATG_TOTAL?corTotal:'var(--bg)')+';color:'+(FATG_TOTAL?'#fff':'var(--t2)')+';border:1.5px solid '+corTotal+'">Total</button>';
+  var separador = '<span style="width:1px;background:var(--bd);margin:2px 4px;align-self:stretch"></span>';
+  box.innerHTML = totalBtn + separador + FATG_CATEGORIAS.map(function(c){
     var ativo = !!FATG_SEL[c.chave];
     return '<button type="button" onclick="fatgToggleCategoria(\''+c.chave+'\')" style="font-size:11px;font-weight:700;padding:5px 12px;border-radius:20px;cursor:pointer;background:'+(ativo?c.cor:'var(--bg)')+';color:'+(ativo?'#fff':'var(--t2)')+';border:1px solid '+(ativo?c.cor:'var(--bd)')+'">'+c.label+'</button>';
   }).join('');
 }
+function fatgToggleTotal(){
+  FATG_TOTAL = !FATG_TOTAL;
+  if(FATG_TOTAL) FATG_SEL = {}; // "Total" é exclusivo: some com qualquer categoria marcada
+  fatgRenderChips();
+  fatgRender();
+}
 function fatgToggleCategoria(chave){
+  FATG_TOTAL = false; // marcar uma categoria sai do modo "Total" automaticamente
   if(FATG_SEL[chave]) delete FATG_SEL[chave];
   else FATG_SEL[chave]=true;
   fatgRenderChips();
@@ -1496,15 +1524,72 @@ function fatgToggleCategoria(chave){
 }
 
 function fatgRender(){
+  if(FATG_TOTAL){ fatgRenderTotalConsolidado(); return; }
   var selecionadas = FATG_CATEGORIAS.filter(function(c){ return FATG_SEL[c.chave]; });
   if(selecionadas.length===0) fatgRenderComposicao();
   else fatgRenderEvolucaoMensal(selecionadas);
+}
+
+// Opção "Total": gráfico de colunas com o consolidado (soma de TODAS as
+// categorias) mês a mês — uma barra só por mês, mesma empresa do filtro
+// principal, ignorando mês/ano do filtro (pra comparar ao longo do tempo).
+function fatgRenderTotalConsolidado(){
+  document.getElementById('fatg-subtitulo').textContent = 'Total consolidado (soma de todas as categorias), mês a mês.';
+  var empresasAtivas = Object.keys(sE);
+  var base = empresasAtivas.length ? mxrData.filter(function(r){ return empresasAtivas.indexOf(r.empresa)>=0; }) : mxrData;
+
+  var porMes = {}; // "AAAA-MM" -> soma de todas as categorias
+  base.forEach(function(r){
+    var idxMes = MESES_PT.indexOf(String(r.mes||'').toLowerCase());
+    if(idxMes<0 || !r.ano || !r.faturamento) return;
+    var chave = r.ano+'-'+String(idxMes+1).padStart(2,'0');
+    var somaLinha = 0;
+    FATG_CATEGORIAS.forEach(function(c){ somaLinha += n(r.faturamento[c.chave]); });
+    porMes[chave] = (porMes[chave]||0) + somaLinha;
+  });
+
+  var chavesOrdenadas = Object.keys(porMes).sort();
+  document.getElementById('fatg-legenda').innerHTML='';
+  if(!chavesOrdenadas.length || typeof Chart==='undefined'){
+    document.getElementById('fatg-vazio').style.display='block';
+    renderBadgeTotalPeriodo('fatg-badge-total', 0, 0);
+    if(FATG_CHART){ FATG_CHART.destroy(); FATG_CHART=null; }
+    return;
+  }
+  document.getElementById('fatg-vazio').style.display='none';
+
+  var labels = chavesOrdenadas.map(function(k){
+    var p=k.split('-'); return MABR[parseInt(p[1])-1]+'/'+p[0].substring(2);
+  });
+  var dataArr = chavesOrdenadas.map(function(k){ return porMes[k]; });
+  var somaTotal = dataArr.reduce(function(s,v){ return s+v; }, 0);
+
+  var tc = dark?'#8fa088':'#5b6b5c';
+  var gc = dark?'rgba(255,255,255,.07)':'rgba(0,0,0,.06)';
+  if(FATG_CHART) FATG_CHART.destroy();
+  FATG_CHART = new Chart(document.getElementById('fatg-canvas'), {
+    type:'bar',
+    data:{ labels:labels, datasets:[{ label:'Total', data:dataArr, backgroundColor:'#0c4b33', borderRadius:4 }] },
+    options:{
+      responsive:true, maintainAspectRatio:false,
+      plugins:{
+        legend:{ display:false },
+        tooltip:{ callbacks:{ label:function(ctx){ return ' Total: '+fM(ctx.raw); } } }
+      },
+      scales:{
+        x:{ ticks:{ color:tc, font:{size:10} }, grid:{ color:gc } },
+        y:{ ticks:{ color:tc, font:{size:10}, callback:function(v){ return fM(v); } }, grid:{ color:gc } }
+      }
+    }
+  });
+  renderBadgeTotalPeriodo('fatg-badge-total', somaTotal, chavesOrdenadas.length);
 }
 
 // Sem categoria selecionada: pizza com a composição do período filtrado na tela.
 function fatgRenderComposicao(){
   document.getElementById('fatg-subtitulo').textContent = 'Composição do período filtrado na tela (sem categoria selecionada).';
   document.getElementById('fatg-legenda').innerHTML='';
+  renderBadgeTotalPeriodo('fatg-badge-total', 0, 0);
   if(!FAT_ATUAL || typeof Chart==='undefined'){
     document.getElementById('fatg-vazio').style.display='block';
     if(FATG_CHART){ FATG_CHART.destroy(); FATG_CHART=null; }
@@ -1557,6 +1642,7 @@ function fatgRenderEvolucaoMensal(selecionadas){
   if(!chavesOrdenadas.length || typeof Chart==='undefined'){
     document.getElementById('fatg-vazio').style.display='block';
     document.getElementById('fatg-legenda').innerHTML='';
+    renderBadgeTotalPeriodo('fatg-badge-total', 0, 0);
     if(FATG_CHART){ FATG_CHART.destroy(); FATG_CHART=null; }
     return;
   }
@@ -1573,6 +1659,8 @@ function fatgRenderEvolucaoMensal(selecionadas){
       borderRadius: 4
     };
   });
+  var somaTudo = 0;
+  datasets.forEach(function(ds){ ds.data.forEach(function(v){ somaTudo += n(v); }); });
 
   var tc = dark?'#8fa088':'#5b6b5c';
   var gc = dark?'rgba(255,255,255,.07)':'rgba(0,0,0,.06)';
@@ -1593,6 +1681,7 @@ function fatgRenderEvolucaoMensal(selecionadas){
     }
   });
   document.getElementById('fatg-legenda').innerHTML='';
+  renderBadgeTotalPeriodo('fatg-badge-total', somaTudo, chavesOrdenadas.length);
 }
 
 /* ═══════════════════════════════════════════════════════════
@@ -1606,6 +1695,7 @@ function fatgRenderEvolucaoMensal(selecionadas){
 ═══════════════════════════════════════════════════════════ */
 var REC_ATUAL = null;
 var RECG_SEL = {};
+var RECG_TOTAL = false; // true = opção "Total" selecionada (consolidado, ignora categorias)
 var RECG_CHART = null;
 var RECG_CATEGORIAS = [
   {chave:'desagio', label:'Deságio', cor:'#1d7a5c'},
@@ -1629,6 +1719,7 @@ var RECG_CAMPO_ROW = {
 
 function openReceitasGrafico(){
   RECG_SEL = {};
+  RECG_TOTAL = false;
   document.getElementById('recg-overlay').style.display='block';
   resetarPosicaoJanela('recg-box');
   recgRenderChips();
@@ -1638,12 +1729,22 @@ function closeReceitasGrafico(){ document.getElementById('recg-overlay').style.d
 
 function recgRenderChips(){
   var box=document.getElementById('recg-chips');
-  box.innerHTML = RECG_CATEGORIAS.map(function(c){
+  var corTotal = '#0c4b33';
+  var totalBtn = '<button type="button" onclick="recgToggleTotal()" style="font-size:11px;font-weight:700;padding:5px 12px;border-radius:20px;cursor:pointer;background:'+(RECG_TOTAL?corTotal:'var(--bg)')+';color:'+(RECG_TOTAL?'#fff':'var(--t2)')+';border:1.5px solid '+corTotal+'">Total</button>';
+  var separador = '<span style="width:1px;background:var(--bd);margin:2px 4px;align-self:stretch"></span>';
+  box.innerHTML = totalBtn + separador + RECG_CATEGORIAS.map(function(c){
     var ativo = !!RECG_SEL[c.chave];
     return '<button type="button" onclick="recgToggleCategoria(\''+c.chave+'\')" style="font-size:11px;font-weight:700;padding:5px 12px;border-radius:20px;cursor:pointer;background:'+(ativo?c.cor:'var(--bg)')+';color:'+(ativo?'#fff':'var(--t2)')+';border:1px solid '+(ativo?c.cor:'var(--bd)')+'">'+c.label+'</button>';
   }).join('');
 }
+function recgToggleTotal(){
+  RECG_TOTAL = !RECG_TOTAL;
+  if(RECG_TOTAL) RECG_SEL = {}; // "Total" é exclusivo: some com qualquer categoria marcada
+  recgRenderChips();
+  recgRender();
+}
 function recgToggleCategoria(chave){
+  RECG_TOTAL = false; // marcar uma categoria sai do modo "Total" automaticamente
   if(RECG_SEL[chave]) delete RECG_SEL[chave];
   else RECG_SEL[chave]=true;
   recgRenderChips();
@@ -1651,15 +1752,72 @@ function recgToggleCategoria(chave){
 }
 
 function recgRender(){
+  if(RECG_TOTAL){ recgRenderTotalConsolidado(); return; }
   var selecionadas = RECG_CATEGORIAS.filter(function(c){ return RECG_SEL[c.chave]; });
   if(selecionadas.length===0) recgRenderComposicao();
   else recgRenderEvolucaoMensal(selecionadas);
+}
+
+// Opção "Total": gráfico de colunas com o consolidado (soma de TODAS as
+// categorias de receita) mês a mês — uma barra só por mês, mesma empresa do
+// filtro principal, ignorando mês/ano do filtro (pra comparar ao longo do tempo).
+function recgRenderTotalConsolidado(){
+  document.getElementById('recg-subtitulo').textContent = 'Total consolidado (soma de todas as categorias), mês a mês.';
+  var empresasAtivas = Object.keys(sE);
+  var base = empresasAtivas.length ? mxrData.filter(function(r){ return empresasAtivas.indexOf(r.empresa)>=0; }) : mxrData;
+
+  var porMes = {}; // "AAAA-MM" -> soma de todas as categorias
+  base.forEach(function(r){
+    var idxMes = MESES_PT.indexOf(String(r.mes||'').toLowerCase());
+    if(idxMes<0 || !r.ano) return;
+    var chave = r.ano+'-'+String(idxMes+1).padStart(2,'0');
+    var somaLinha = 0;
+    RECG_CATEGORIAS.forEach(function(c){ somaLinha += n(r[RECG_CAMPO_ROW[c.chave]]); });
+    porMes[chave] = (porMes[chave]||0) + somaLinha;
+  });
+
+  var chavesOrdenadas = Object.keys(porMes).sort();
+  document.getElementById('recg-legenda').innerHTML='';
+  if(!chavesOrdenadas.length || typeof Chart==='undefined'){
+    document.getElementById('recg-vazio').style.display='block';
+    renderBadgeTotalPeriodo('recg-badge-total', 0, 0);
+    if(RECG_CHART){ RECG_CHART.destroy(); RECG_CHART=null; }
+    return;
+  }
+  document.getElementById('recg-vazio').style.display='none';
+
+  var labels = chavesOrdenadas.map(function(k){
+    var p=k.split('-'); return MABR[parseInt(p[1])-1]+'/'+p[0].substring(2);
+  });
+  var dataArr = chavesOrdenadas.map(function(k){ return porMes[k]; });
+  var somaTotal = dataArr.reduce(function(s,v){ return s+v; }, 0);
+
+  var tc = dark?'#8fa088':'#5b6b5c';
+  var gc = dark?'rgba(255,255,255,.07)':'rgba(0,0,0,.06)';
+  if(RECG_CHART) RECG_CHART.destroy();
+  RECG_CHART = new Chart(document.getElementById('recg-canvas'), {
+    type:'bar',
+    data:{ labels:labels, datasets:[{ label:'Total', data:dataArr, backgroundColor:'#0c4b33', borderRadius:4 }] },
+    options:{
+      responsive:true, maintainAspectRatio:false,
+      plugins:{
+        legend:{ display:false },
+        tooltip:{ callbacks:{ label:function(ctx){ return ' Total: '+fM(ctx.raw); } } }
+      },
+      scales:{
+        x:{ ticks:{ color:tc, font:{size:10} }, grid:{ color:gc } },
+        y:{ ticks:{ color:tc, font:{size:10}, callback:function(v){ return fM(v); } }, grid:{ color:gc } }
+      }
+    }
+  });
+  renderBadgeTotalPeriodo('recg-badge-total', somaTotal, chavesOrdenadas.length);
 }
 
 // Sem categoria selecionada: pizza com a composição do período filtrado na tela.
 function recgRenderComposicao(){
   document.getElementById('recg-subtitulo').textContent = 'Composição do período filtrado na tela (sem categoria selecionada).';
   document.getElementById('recg-legenda').innerHTML='';
+  renderBadgeTotalPeriodo('recg-badge-total', 0, 0);
   if(!REC_ATUAL || typeof Chart==='undefined'){
     document.getElementById('recg-vazio').style.display='block';
     if(RECG_CHART){ RECG_CHART.destroy(); RECG_CHART=null; }
@@ -1712,6 +1870,7 @@ function recgRenderEvolucaoMensal(selecionadas){
   if(!chavesOrdenadas.length || typeof Chart==='undefined'){
     document.getElementById('recg-vazio').style.display='block';
     document.getElementById('recg-legenda').innerHTML='';
+    renderBadgeTotalPeriodo('recg-badge-total', 0, 0);
     if(RECG_CHART){ RECG_CHART.destroy(); RECG_CHART=null; }
     return;
   }
@@ -1728,6 +1887,8 @@ function recgRenderEvolucaoMensal(selecionadas){
       borderRadius: 4
     };
   });
+  var somaTudo = 0;
+  datasets.forEach(function(ds){ ds.data.forEach(function(v){ somaTudo += n(v); }); });
 
   var tc = dark?'#8fa088':'#5b6b5c';
   var gc = dark?'rgba(255,255,255,.07)':'rgba(0,0,0,.06)';
@@ -1748,6 +1909,7 @@ function recgRenderEvolucaoMensal(selecionadas){
     }
   });
   document.getElementById('recg-legenda').innerHTML='';
+  renderBadgeTotalPeriodo('recg-badge-total', somaTudo, chavesOrdenadas.length);
 }
 
 var INVP_DATA = null; // cache: null = ainda não carregado
