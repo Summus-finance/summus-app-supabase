@@ -184,6 +184,24 @@ h1,h2,h3,.kl,.fl,.mo-sec h3,.mo-head h2,.kcard-h,.tp-chart-card h3,.mi-l{font-fa
   .top-r{gap:6px}
   .tbtn,.btn{font-size:11px;padding:6px 10px}
   .mo-box{border-radius:10px}
+
+}
+/* Alinhamento exato dos itens dos 3 cards da primeira linha (Faturamento / Comercial / Operação):
+   cada linha (item 1, 2, 3, 4) passa a ter a mesma altura nos três cards, então os títulos e as
+   linhas divisórias ficam na mesma altura (ex.: Despesa do mês = Novos cedentes = Redescontos).
+   Usa subgrid; sem suporte (ou em tela < 1101px) mantém o layout antigo com espaçadores. */
+@supports (grid-template-rows: subgrid){
+  @media(min-width:1101px){
+    .kgrid{row-gap:0;margin-bottom:0}
+    .kcard{margin-bottom:12px}
+    .kcard-al{display:grid;grid-template-columns:minmax(0,1fr);grid-row:span 5;grid-template-rows:subgrid}
+    .kcard-al > .kcard-h{grid-row:1}
+    .kcard-al > .kcard-b{grid-row:2 / span 4;display:grid;grid-template-columns:minmax(0,1fr);grid-template-rows:subgrid}
+    .kcard-al .mi-sp{display:none}
+    /* Faturamento e Receitas têm margin-bottom:7px inline; igualar (9px) pra linha divisória cair no mesmo ponto nos 3 cards */
+    .kcard-al .mi:not(:last-child){margin-bottom:9px!important}
+  }
+}
 </style>
 </head>
 <body>
@@ -282,6 +300,7 @@ h1,h2,h3,.kl,.fl,.mo-sec h3,.mo-head h2,.kcard-h,.tp-chart-card h3,.mi-l{font-fa
       <select id="csg-f-empresa" onchange="csgRenderGrafico()" style="border:1px solid var(--bd);border-radius:7px;padding:6px 10px;font-size:13px;font-family:inherit;background:var(--cd);color:var(--t1);min-width:160px">
         <option value="">Todas (consolidado)</option>
       </select>
+      <label class="tp-chk" style="margin-left:auto;padding-bottom:0"><input type="checkbox" id="csg-mostrar-valores" onchange="csgRenderGrafico()"> Mostrar valores no gráfico</label>
     </div>
     <div style="height:320px"><canvas id="csg-c-evolucao"></canvas></div>
     <div id="csg-legenda" class="tp-legenda-evol" style="justify-content:center"></div>
@@ -300,6 +319,7 @@ h1,h2,h3,.kl,.fl,.mo-sec h3,.mo-head h2,.kcard-h,.tp-chart-card h3,.mi-l{font-fa
       <button class="mo-close" onclick="closeFaturamentoGrafico()">&times;</button>
     </div>
     <div id="fatg-chips" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:14px"></div>
+    <div style="display:flex;justify-content:flex-end;margin:-6px 0 8px"><label class="tp-chk" style="padding-bottom:0"><input type="checkbox" id="fatg-mostrar-valores" onchange="fatgRender()"> Mostrar valores no gráfico</label></div>
     <div style="height:320px"><canvas id="fatg-canvas"></canvas></div>
     <div id="fatg-legenda" class="tp-legenda-evol" style="justify-content:center;flex-wrap:wrap"></div>
     <div id="fatg-vazio" class="empty" style="display:none">Sem dados para exibir.</div>
@@ -318,10 +338,33 @@ h1,h2,h3,.kl,.fl,.mo-sec h3,.mo-head h2,.kcard-h,.tp-chart-card h3,.mi-l{font-fa
       <button class="mo-close" onclick="closeReceitasGrafico()">&times;</button>
     </div>
     <div id="recg-chips" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:14px"></div>
+    <div style="display:flex;justify-content:flex-end;margin:-6px 0 8px"><label class="tp-chk" style="padding-bottom:0"><input type="checkbox" id="recg-mostrar-valores" onchange="recgRender()"> Mostrar valores no gráfico</label></div>
     <div style="height:320px"><canvas id="recg-canvas"></canvas></div>
     <div id="recg-legenda" class="tp-legenda-evol" style="justify-content:center;flex-wrap:wrap"></div>
     <div id="recg-vazio" class="empty" style="display:none">Sem dados para exibir.</div>
     <div id="recg-badge-total" style="display:none;text-align:center;margin-top:14px"></div>
+  </div>
+</div>
+
+<!-- ══ MODAL GRÁFICO DE TOTAL DE FACE LIQUIDADA ══ -->
+<div id="faceg-overlay" class="mo-overlay">
+  <div class="mo-box" id="faceg-box" style="max-width:900px">
+    <div class="mo-head" style="cursor:move" onmousedown="arrastarIniciar(event,'faceg-box')" ontouchstart="arrastarIniciar(event,'faceg-box')" title="Arraste para mover esta janela">
+      <div>
+        <h2>Total de Face Liquidada</h2>
+        <p id="faceg-subtitulo">Primeiro gráfico: total de face liquidada por mês. Segundo gráfico: receitas liquidadas ÷ total de face (%).</p>
+      </div>
+      <button class="mo-close" onclick="closeFaceGrafico()">&times;</button>
+    </div>
+    <div style="display:flex;justify-content:flex-end;margin:-6px 0 8px"><label class="tp-chk" style="padding-bottom:0"><input type="checkbox" id="faceg-mostrar-valores" onchange="facegRender()"> Mostrar valores no gráfico</label></div>
+    <div id="faceg-graficos">
+      <div style="font-size:11px;font-weight:700;color:var(--t2);text-transform:uppercase;letter-spacing:.3px;margin-bottom:6px">Total de Face liquidada (R$)</div>
+      <div style="height:250px"><canvas id="faceg-canvas-face"></canvas></div>
+      <div style="font-size:11px;font-weight:700;color:var(--t2);text-transform:uppercase;letter-spacing:.3px;margin:22px 0 6px;padding-top:16px;border-top:1px solid var(--bd)">Receitas liquidadas ÷ Total de Face (%)</div>
+      <div style="height:250px"><canvas id="faceg-canvas-pct"></canvas></div>
+    </div>
+    <div id="faceg-vazio" class="empty" style="display:none">Nenhum Total de Face liquidada lançado ainda.</div>
+    <div id="faceg-badges" style="display:none;text-align:center;margin-top:14px;gap:10px;flex-wrap:wrap;justify-content:center"></div>
   </div>
 </div>
 
@@ -599,6 +642,7 @@ function mxrNestify(row){
     outras_receitas: row.outras_receitas,
     receita_recuperacao_tarifas: row.receita_recuperacao_tarifas,
     descontos_de_receitas: row.descontos_de_receitas,
+    total_face_liquidada: row.total_face_liquidada,
     resultado_meta: row.resultado_meta,
     captacao_investidor_meta: row.captacao_investidor_meta,
     cedentes: { meta: row.cedentes_meta, realizado: row.cedentes_realizado },
@@ -899,8 +943,8 @@ function itemMeta(lbl, real, meta, fmt, extraHtml, faltaAbaixo, compacto, extraP
   var cls=badgeCls(pctReal);
   var falta=meta-real;
   var faltaTxt = meta>0 ? (falta>0?('Falta: '+fmt(falta)):'✓ Meta atingida!') : '';
-  var espacador = '<div style="font-size:12px;margin-top:2px;visibility:hidden;height:13px;line-height:13px">.</div>';
-  var extraDiv = extraPx ? '<div style="height:'+extraPx+'px"></div>' : '';
+  var espacador = '<div class="mi-sp" style="font-size:12px;margin-top:2px;visibility:hidden;height:13px;line-height:13px">.</div>';
+  var extraDiv = extraPx ? '<div class="mi-sp" style="height:'+extraPx+'px"></div>' : '';
   if(faltaAbaixo){
     return '<div class="mi"><div class="mi-h"><div style="display:flex;align-items:center;gap:8px;min-width:0"><span class="mi-l">'+lbl+'</span>'+(extraHtml||'')+'</div>'+
       (meta>0?'<span class="mi-badge '+cls+'">'+pctReal+'%'+(pctReal>=100?' ✓':'')+'</span>':'')+'</div>'+
@@ -960,7 +1004,7 @@ function itemFaturamentoPrincipal(real, meta, fatOp, fatPr, fatRd, fatRf, fatMu,
 // Item "Receitas": mostra o total (Receita Liquidada + IOF somados) na
 // barra principal, e os dois valores que compõem esse total como badges
 // discretos abaixo — mesmo padrão visual do card de Faturamento.
-function itemReceitas(real, meta, recDesagio, recProrrogacao, recRedesconto, recRefinanciamento, recMultas, recJurosAtraso, recIof, recRecupTarifas, recOutras, recDescontos, fmt){
+function itemReceitas(real, meta, recDesagio, recProrrogacao, recRedesconto, recRefinanciamento, recMultas, recJurosAtraso, recIof, recRecupTarifas, recOutras, recDescontos, faceLiquidada, fmt){
   var pctReal = meta>0?Math.round(real/meta*100):0;
   var pct=Math.min(Math.max(pctReal,0),100);
   var cls=badgeCls(pctReal);
@@ -994,6 +1038,14 @@ function itemReceitas(real, meta, recDesagio, recProrrogacao, recRedesconto, rec
       '<div>'+colEsquerda+'</div>'+
       '<div>'+colDireita+'</div>'+
     '</div>'+
+    // Total de Face liquidada + quanto as receitas liquidadas representam dele
+    // (receitas liquidadas ÷ face liquidada). Sem face lançada, mostra "—".
+    '<div style="display:flex;align-items:center;flex-wrap:wrap;gap:3px 6px;margin-top:8px;padding-top:6px;font-size:10px;line-height:12px">'+
+      '<span style="color:var(--t3);font-weight:600;white-space:nowrap">Total de Face liquidada:</span>'+
+      '<span style="color:var(--t1);font-weight:700;font-family:var(--num);white-space:nowrap">'+fmt(faceLiquidada)+'</span>'+
+      '<span style="color:var(--br);font-weight:700;font-family:var(--num);white-space:nowrap;background:var(--bg);border:1px solid var(--bd);border-radius:20px;padding:1px 7px" title="Receitas liquidadas ÷ Total de Face liquidada">'+(faceLiquidada>0?fPct(real/faceLiquidada*100):'—')+'</span>'+
+      faceEyeBtnHtml()+
+    '</div>'+
   '</div>';
 }
 
@@ -1008,10 +1060,10 @@ function itemDespesa(lbl, real, limite, eyeBtn){
   return '<div class="mi"><div class="mi-h"><span class="mi-l">'+lbl+(eyeBtn||'')+'</span><span class="mi-badge '+cls+'">'+badgeTxt+'</span></div>'+
     '<div class="bar-w"><div class="bar" style="width:'+pct+'%;background:'+barColor(cls)+'"></div></div>'+
     '<div class="mi-v"><span><span class="real">'+fM(real)+'</span><span class="sep">limite</span>'+fM(limite)+'</span><span>'+restTxt+'</span></div>'+
-    '<div style="font-size:12px;margin-top:2px;visibility:hidden;height:13px;line-height:13px">.</div>'+
-    '<div style="font-size:12px;margin-top:2px;visibility:hidden;height:13px;line-height:13px">.</div>'+
-    '<div style="font-size:12px;margin-top:2px;visibility:hidden;height:13px;line-height:13px">.</div>'+
-    '<div style="font-size:12px;margin-top:2px;visibility:hidden;height:13px;line-height:13px">.</div></div>';
+    '<div class="mi-sp" style="font-size:12px;margin-top:2px;visibility:hidden;height:13px;line-height:13px">.</div>'+
+    '<div class="mi-sp" style="font-size:12px;margin-top:2px;visibility:hidden;height:13px;line-height:13px">.</div>'+
+    '<div class="mi-sp" style="font-size:12px;margin-top:2px;visibility:hidden;height:13px;line-height:13px">.</div>'+
+    '<div class="mi-sp" style="font-size:12px;margin-top:2px;visibility:hidden;height:13px;line-height:13px">.</div></div>';
 }
 
 // PDD: o valor em R$ vira % do Capital sob Gestão, e essa % é comparada com a
@@ -1130,9 +1182,9 @@ function itemResultado(real, meta){
     (meta>0?'<div class="bar-w"><div class="bar" style="width:'+pct+'%;background:'+barColor(cls)+'"></div></div>':'')+
     '<div class="mi-v"><span><span class="real" style="color:'+(real<0?'#c0392b':'#1d9e75')+'">'+fM(real)+'</span>'+(meta>0?'<span class="sep">meta</span>'+fM(meta):'')+'</span>'+(meta>0?'<span>'+faltaTxt+'</span>':'')+'</div>'+
     linhaRegime+
-    '<div style="font-size:12px;margin-top:2px;visibility:hidden;height:13px;line-height:13px">.</div>'+
-    '<div style="font-size:12px;margin-top:2px;visibility:hidden;height:13px;line-height:13px">.</div>'+
-    '<div style="font-size:12px;margin-top:2px;visibility:hidden;height:13px;line-height:13px">.</div></div>';
+    '<div class="mi-sp" style="font-size:12px;margin-top:2px;visibility:hidden;height:13px;line-height:13px">.</div>'+
+    '<div class="mi-sp" style="font-size:12px;margin-top:2px;visibility:hidden;height:13px;line-height:13px">.</div>'+
+    '<div class="mi-sp" style="font-size:12px;margin-top:2px;visibility:hidden;height:13px;line-height:13px">.</div></div>';
 }
 
 function itemOperado(lbl, operado, cadastrado, extraPx){
@@ -1145,10 +1197,10 @@ function itemOperado(lbl, operado, cadastrado, extraPx){
     '<div class="bar-w"><div class="bar" style="width:'+pct+'%;background:'+barColor(cls)+'"></div></div>'+
     '<div class="mi-v"><span><span class="real">'+fN(operado)+'</span><span class="sep">de</span>'+fN(cadastrado)+' cadastrados</span></div>'+
     (cadastrado>0?'<div style="font-size:13px;color:var(--t2);margin-top:2px;height:13px;line-height:13px">'+faltaTxt+'</div>':'')+
-    '<div style="font-size:12px;margin-top:2px;visibility:hidden;height:13px;line-height:13px">.</div>'+
-    '<div style="font-size:12px;margin-top:2px;visibility:hidden;height:13px;line-height:13px">.</div>'+
-    '<div style="font-size:12px;margin-top:2px;visibility:hidden;height:13px;line-height:13px">.</div>'+
-    (extraPx?'<div style="height:'+extraPx+'px"></div>':'')+'</div>';
+    '<div class="mi-sp" style="font-size:12px;margin-top:2px;visibility:hidden;height:13px;line-height:13px">.</div>'+
+    '<div class="mi-sp" style="font-size:12px;margin-top:2px;visibility:hidden;height:13px;line-height:13px">.</div>'+
+    '<div class="mi-sp" style="font-size:12px;margin-top:2px;visibility:hidden;height:13px;line-height:13px">.</div>'+
+    (extraPx?'<div class="mi-sp" style="height:'+extraPx+'px"></div>':'')+'</div>';
 }
 
 function itemOpLinha(lbl, real, meta, vol, fatVal, taxaVal, extraPx){
@@ -1162,9 +1214,9 @@ function itemOpLinha(lbl, real, meta, vol, fatVal, taxaVal, extraPx){
     '<div class="mi-v"><span class="real">'+fN(real)+(meta>0?' de '+fN(meta):'')+'</span><span>Vol. '+fM(vol)+'</span></div>'+
     linhaFaltaComFat(faltaTxt, fatVal)+
     linhaTaxaPonderada(taxaVal)+
-    '<div style="font-size:12px;margin-top:2px;visibility:hidden;height:13px;line-height:13px">.</div>'+
-    '<div style="font-size:12px;margin-top:2px;visibility:hidden;height:13px;line-height:13px">.</div>'+
-    (extraPx?'<div style="height:'+extraPx+'px"></div>':'')+'</div>';
+    '<div class="mi-sp" style="font-size:12px;margin-top:2px;visibility:hidden;height:13px;line-height:13px">.</div>'+
+    '<div class="mi-sp" style="font-size:12px;margin-top:2px;visibility:hidden;height:13px;line-height:13px">.</div>'+
+    (extraPx?'<div class="mi-sp" style="height:'+extraPx+'px"></div>':'')+'</div>';
 }
 
 // Igual à Despesa do mês: "limite" é um teto, não uma meta a bater — ficar ABAIXO
@@ -1183,9 +1235,9 @@ function itemOpLimite(lbl, real, limite, vol, fatVal, taxaVal, extraPx){
     '<div class="mi-v"><span class="real">'+fN(real)+(limite>0?' limite '+fN(limite):'')+'</span><span>Vol. '+fM(vol)+'</span></div>'+
     linhaFaltaComFat(faltaTxt, fatVal)+
     linhaTaxaPonderada(taxaVal)+
-    '<div style="font-size:12px;margin-top:2px;visibility:hidden;height:13px;line-height:13px">.</div>'+
-    '<div style="font-size:12px;margin-top:2px;visibility:hidden;height:13px;line-height:13px">.</div>'+
-    (extraPx?'<div style="height:'+extraPx+'px"></div>':'')+'</div>';
+    '<div class="mi-sp" style="font-size:12px;margin-top:2px;visibility:hidden;height:13px;line-height:13px">.</div>'+
+    '<div class="mi-sp" style="font-size:12px;margin-top:2px;visibility:hidden;height:13px;line-height:13px">.</div>'+
+    (extraPx?'<div class="mi-sp" style="height:'+extraPx+'px"></div>':'')+'</div>';
 }
 
 // Total = Operações realizadas + Prorrogações realizadas + Redescontos realizados (numerador)
@@ -1204,8 +1256,8 @@ function itemOpTotal(rOp,rPr,rRd,mOp,vOp,vPr,vRd,fatTotal,taxaTotal){
     '<div class="mi-v"><span class="real">'+fN(tR)+(tM>0?' de '+fN(tM):'')+'</span><span>Vol. Total '+fM(tV)+'</span></div>'+
     linhaFaltaComFat(faltaTxt, fatTotal)+
     linhaTaxaPonderada(taxaTotal)+
-    '<div style="font-size:12px;margin-top:2px;visibility:hidden;height:13px;line-height:13px">.</div>'+
-    '<div style="font-size:12px;margin-top:2px;visibility:hidden;height:13px;line-height:13px">.</div></div>';
+    '<div class="mi-sp" style="font-size:12px;margin-top:2px;visibility:hidden;height:13px;line-height:13px">.</div>'+
+    '<div class="mi-sp" style="font-size:12px;margin-top:2px;visibility:hidden;height:13px;line-height:13px">.</div></div>';
 }
 
 /* ── RENDER KPIs ── */
@@ -1230,6 +1282,7 @@ function renderKPIs(d){
   var recOutras=somaCampo(d,'outras_receitas');
   var recRecupTarifas=somaCampo(d,'receita_recuperacao_tarifas');
   var recDescontos=somaCampo(d,'descontos_de_receitas');
+  var faceLiquidada=somaCampo(d,'total_face_liquidada');
   REC_ATUAL = { // usado pelo modal "Composição de Receitas Liquidadas" (visão padrão, sem categoria selecionada)
     desagio: recLiquidada, prorrogacao: recProrrogacao, redesconto: recRedesconto, refinanciamento: recRefinanciamento, multas: recMultas,
     juros_atraso: recJurosAtraso, iof: recIofTotal, recuperacao_tarifas: recRecupTarifas,
@@ -1357,21 +1410,21 @@ function renderKPIs(d){
 
   document.getElementById('kdiv').innerHTML = '<div class="kgrid">' +
 
-    '<div class="kcard"><div class="kcard-h">📄 FATURAMENTO</div><div class="kcard-b">' +
+    '<div class="kcard kcard-al"><div class="kcard-h">📄 FATURAMENTO</div><div class="kcard-b">' +
       itemFaturamentoPrincipal(fat.total, fat.meta, fat.operacoes, fat.prorrogacoes, fat.redesconto, fat.refinanciamento, fat.multas, fat.juros_atraso, fat.iof, fat.recuperacao_tarifas, fat.descontos) +
-      itemReceitas(recReal, recMeta, recLiquidada, recProrrogacao, recRedesconto, recRefinanciamento, recMultas, recJurosAtraso, recIofTotal, recRecupTarifas, recOutras, recDescontos, fM) +
+      itemReceitas(recReal, recMeta, recLiquidada, recProrrogacao, recRedesconto, recRefinanciamento, recMultas, recJurosAtraso, recIofTotal, recRecupTarifas, recOutras, recDescontos, faceLiquidada, fM) +
       itemDespesa('Despesa do mês', desp.real, desp.meta, tpEyeBtnHtml()) +
       itemResultado(resultadoReal, resultadoMetaSoma) +
     '</div></div>' +
 
-    '<div class="kcard"><div class="kcard-h">👥 COMERCIAL</div><div class="kcard-b">' +
+    '<div class="kcard kcard-al"><div class="kcard-h">👥 COMERCIAL</div><div class="kcard-b">' +
       itemMeta('Total cedentes cadastrados', ced.real, ced.meta, fN, chkCed, true, false, 20) +
       itemOperado('Total cedentes operado', totalCedOperado, ced.real, 20) +
       itemMeta('Novos cedentes', novosCed.real, novosCed.meta, fN, chkNovos, true) +
       itemMeta('Operaram no mês', operaram.real, operaram.meta, fN, null, true) +
     '</div></div>' +
 
-    '<div class="kcard"><div class="kcard-h">🔄 OPERAÇÃO</div><div class="kcard-b">' +
+    '<div class="kcard kcard-al"><div class="kcard-h">🔄 OPERAÇÃO</div><div class="kcard-b">' +
       itemOpLinha('Operações', op.real, op.meta, volOp, fat.operacoes, txOpPond, 20) +
       itemOpLimite('Prorrogações', pr.real, pr.meta, volPr, fat.prorrogacoes, txPrPond, 20) +
       itemOpLimite('Redescontos', rd.real, rd.meta, volRd, fat.redesconto, txRdPond) +
@@ -1434,6 +1487,12 @@ function recEyeBtnHtml(){
   return '<button onclick="event.stopPropagation();openReceitasGrafico()" title="Ver gráfico de receitas liquidadas" style="background:none;border:none;cursor:pointer;padding:0;margin-left:6px;vertical-align:middle;color:#8fa5bb;display:inline-flex;align-items:center"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg></button>';
 }
 
+// Botão de olho da linha "Total de Face liquidada" — abre o gráfico mensal
+// (colunas = face liquidada, linha = receitas liquidadas ÷ face em %).
+function faceEyeBtnHtml(){
+  return '<button onclick="event.stopPropagation();openFaceGrafico()" title="Ver gráfico do total de face liquidada" style="background:none;border:none;cursor:pointer;padding:0;margin-left:2px;color:#8fa5bb;display:inline-flex;align-items:center;flex:none"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg></button>';
+}
+
 function tpEyeBtnHtml(){
   var s=getSession();
   if(!s || !s.acessaDespesas) return '';
@@ -1463,6 +1522,61 @@ function renderBadgeTotalPeriodo(elId, soma, qtdMeses){
   el.style.display='block';
   el.innerHTML = '<span style="display:inline-flex;align-items:center;gap:8px;font-size:13px;font-weight:700;color:var(--t1);background:var(--bg);border:1px solid var(--bd);padding:8px 18px;border-radius:20px">'+
     'Total dos '+qtdMeses+(qtdMeses===1?' mês exibido':' meses exibidos')+': <span style="font-family:var(--num);color:var(--br)">'+fM(soma)+'</span></span>';
+}
+
+
+/* ── "Mostrar valores no gráfico": rótulos fixos (plugin datalabels, já carregado na página) ──
+   Mesmo padrão da janela de Despesas Detalhadas: o plugin é registrado em cada gráfico e só
+   desenha os rótulos quando o checkbox da janela está marcado. */
+function chkVal(id){ var e=document.getElementById(id); return !!(e && e.checked); }
+function dlPlugins(){ return (typeof ChartDataLabels!=='undefined') ? [ChartDataLabels] : []; }
+// Colunas: valor fixo acima de cada barra (zeros/vazios não ganham rótulo).
+// Só gira o texto 90° quando há muitas barras (>6) E o rótulo é longo (ex.: R$ 1.234.567,00) —
+// rótulos curtos, como percentuais, ficam na horizontal.
+function dlFlat(datasets){ return [].concat.apply([], datasets.map(function(d){ return d.data; })); }
+function dlGirar(fmt, valores){
+  var vs=valores.filter(function(v){ return v!==null && v!==undefined; });
+  if(vs.length<=6) return false;
+  var max=0; vs.forEach(function(v){ max=Math.max(max, String(fmt(v)).length); });
+  return max>8;
+}
+function dlBarras(mostrar, tc, fmt, valores){
+  if(!mostrar) return {display:false};
+  var girar=dlGirar(fmt, valores);
+  return {
+    display:function(ctx){ var v=ctx.dataset.data[ctx.dataIndex]; return v!==null && v!==undefined && v!==0; },
+    color:tc, anchor:'end', align:'end', offset:2, clamp:true, clip:false,
+    rotation: girar ? -90 : 0,
+    font:{size:9, weight:'bold'},
+    formatter:function(v){ return fmt(v); }
+  };
+}
+// Espaço extra no topo do gráfico pros rótulos não serem cortados.
+function dlPadding(mostrar, fmt, valores){ return mostrar ? {top: dlGirar(fmt, valores) ? 84 : 24} : 0; }
+// Rosca/pizza: só as fatias grandes (>=6%) mostram % e valor dentro da rosca; as pequenas
+// ficariam empilhadas — o valor de TODAS as categorias aparece na legenda (dlLegendaRosca).
+function dlRosca(mostrar, valoresAbs, valoresReais){
+  if(!mostrar) return {display:false};
+  var total=valoresAbs.reduce(function(s,x){return s+x;},0);
+  return {
+    display:function(ctx){ return total>0 && valoresAbs[ctx.dataIndex]/total>=0.06; },
+    color:'#fff', textAlign:'center', font:{size:9, weight:'bold'}, clip:false,
+    formatter:function(v,ctx){ return (v/total*100).toFixed(1).replace('.',',')+'%\n'+fM(valoresReais[ctx.dataIndex]); }
+  };
+}
+function dlLegendaRosca(mostrar, corTxt, nomes, valoresAbs, valoresReais){
+  var total=valoresAbs.reduce(function(s,x){return s+x;},0);
+  var cfg={ color:corTxt, font:{size: mostrar?10:11} };
+  if(mostrar){
+    cfg.generateLabels=function(chart){
+      var base=Chart.overrides.doughnut.plugins.legend.labels.generateLabels(chart);
+      base.forEach(function(it,i){
+        it.text = nomes[i]+'  '+(total>0?(valoresAbs[i]/total*100).toFixed(1).replace('.',','):'0')+'%  ·  '+fM(valoresReais[i]);
+      });
+      return base;
+    };
+  }
+  return cfg;
 }
 
 /* ═══════════════════════════════════════════════════════════
@@ -1572,7 +1686,9 @@ function fatgRenderTotalConsolidado(){
     data:{ labels:labels, datasets:[{ label:'Total', data:dataArr, backgroundColor:'#0c4b33', borderRadius:4 }] },
     options:{
       responsive:true, maintainAspectRatio:false,
+      layout:{ padding: dlPadding(chkVal('fatg-mostrar-valores'), fM, dataArr) },
       plugins:{
+        datalabels: dlBarras(chkVal('fatg-mostrar-valores'), tc, fM, dataArr),
         legend:{ display:false },
         tooltip:{ callbacks:{ label:function(ctx){ return ' Total: '+fM(ctx.raw); } } }
       },
@@ -1580,7 +1696,8 @@ function fatgRenderTotalConsolidado(){
         x:{ ticks:{ color:tc, font:{size:10} }, grid:{ color:gc } },
         y:{ ticks:{ color:tc, font:{size:10}, callback:function(v){ return fM(v); } }, grid:{ color:gc } }
       }
-    }
+    },
+    plugins: dlPlugins()
   });
   renderBadgeTotalPeriodo('fatg-badge-total', somaTotal, chavesOrdenadas.length);
 }
@@ -1595,10 +1712,10 @@ function fatgRenderComposicao(){
     if(FATG_CHART){ FATG_CHART.destroy(); FATG_CHART=null; }
     return;
   }
-  var labels=[], valores=[], cores=[];
+  var labels=[], valores=[], cores=[], reais=[];
   FATG_CATEGORIAS.forEach(function(c){
     var v = n(FAT_ATUAL[c.chave]);
-    if(v!==0){ labels.push(c.label); valores.push(Math.abs(v)); cores.push(c.cor); }
+    if(v!==0){ labels.push(c.label); valores.push(Math.abs(v)); reais.push(v); cores.push(c.cor); }
   });
   if(!valores.length){
     document.getElementById('fatg-vazio').style.display='block';
@@ -1613,10 +1730,12 @@ function fatgRenderComposicao(){
     options:{
       responsive:true, maintainAspectRatio:false,
       plugins:{
-        legend:{ position:'right', labels:{ color: dark?'#8fa088':'#5b6b5c', font:{size:11} } },
+        datalabels: dlRosca(chkVal('fatg-mostrar-valores'), valores, reais),
+        legend:{ position:'right', labels: dlLegendaRosca(chkVal('fatg-mostrar-valores'), dark?'#8fa088':'#5b6b5c', labels, valores, reais) },
         tooltip:{ callbacks:{ label:function(ctx){ return ' '+ctx.label+': '+fM(ctx.raw); } } }
       }
-    }
+    },
+    plugins: dlPlugins()
   });
 }
 
@@ -1670,15 +1789,18 @@ function fatgRenderEvolucaoMensal(selecionadas){
     data:{ labels:labels, datasets:datasets },
     options:{
       responsive:true, maintainAspectRatio:false,
+      layout:{ padding: dlPadding(chkVal('fatg-mostrar-valores'), fM, dlFlat(datasets)) },
       plugins:{
-        legend:{ display: selecionadas.length>1, position:'top', labels:{ color:tc, font:{size:11} } },
+        datalabels: dlBarras(chkVal('fatg-mostrar-valores'), tc, fM, dlFlat(datasets)),
+        legend:{ display: selecionadas.length>1, position: chkVal('fatg-mostrar-valores') ? 'bottom' : 'top', labels:{ color:tc, font:{size:11} } },
         tooltip:{ callbacks:{ label:function(ctx){ return ' '+ctx.dataset.label+': '+fM(ctx.raw); } } }
       },
       scales:{
         x:{ ticks:{ color:tc, font:{size:10} }, grid:{ color:gc } },
         y:{ ticks:{ color:tc, font:{size:10}, callback:function(v){ return fM(v); } }, grid:{ color:gc } }
       }
-    }
+    },
+    plugins: dlPlugins()
   });
   document.getElementById('fatg-legenda').innerHTML='';
   renderBadgeTotalPeriodo('fatg-badge-total', somaTudo, chavesOrdenadas.length);
@@ -1800,7 +1922,9 @@ function recgRenderTotalConsolidado(){
     data:{ labels:labels, datasets:[{ label:'Total', data:dataArr, backgroundColor:'#0c4b33', borderRadius:4 }] },
     options:{
       responsive:true, maintainAspectRatio:false,
+      layout:{ padding: dlPadding(chkVal('recg-mostrar-valores'), fM, dataArr) },
       plugins:{
+        datalabels: dlBarras(chkVal('recg-mostrar-valores'), tc, fM, dataArr),
         legend:{ display:false },
         tooltip:{ callbacks:{ label:function(ctx){ return ' Total: '+fM(ctx.raw); } } }
       },
@@ -1808,7 +1932,8 @@ function recgRenderTotalConsolidado(){
         x:{ ticks:{ color:tc, font:{size:10} }, grid:{ color:gc } },
         y:{ ticks:{ color:tc, font:{size:10}, callback:function(v){ return fM(v); } }, grid:{ color:gc } }
       }
-    }
+    },
+    plugins: dlPlugins()
   });
   renderBadgeTotalPeriodo('recg-badge-total', somaTotal, chavesOrdenadas.length);
 }
@@ -1823,10 +1948,10 @@ function recgRenderComposicao(){
     if(RECG_CHART){ RECG_CHART.destroy(); RECG_CHART=null; }
     return;
   }
-  var labels=[], valores=[], cores=[];
+  var labels=[], valores=[], cores=[], reais=[];
   RECG_CATEGORIAS.forEach(function(c){
     var v = n(REC_ATUAL[c.chave]);
-    if(v!==0){ labels.push(c.label); valores.push(Math.abs(v)); cores.push(c.cor); }
+    if(v!==0){ labels.push(c.label); valores.push(Math.abs(v)); reais.push(v); cores.push(c.cor); }
   });
   if(!valores.length){
     document.getElementById('recg-vazio').style.display='block';
@@ -1841,10 +1966,12 @@ function recgRenderComposicao(){
     options:{
       responsive:true, maintainAspectRatio:false,
       plugins:{
-        legend:{ position:'right', labels:{ color: dark?'#8fa088':'#5b6b5c', font:{size:11} } },
+        datalabels: dlRosca(chkVal('recg-mostrar-valores'), valores, reais),
+        legend:{ position:'right', labels: dlLegendaRosca(chkVal('recg-mostrar-valores'), dark?'#8fa088':'#5b6b5c', labels, valores, reais) },
         tooltip:{ callbacks:{ label:function(ctx){ return ' '+ctx.label+': '+fM(ctx.raw); } } }
       }
-    }
+    },
+    plugins: dlPlugins()
   });
 }
 
@@ -1898,18 +2025,114 @@ function recgRenderEvolucaoMensal(selecionadas){
     data:{ labels:labels, datasets:datasets },
     options:{
       responsive:true, maintainAspectRatio:false,
+      layout:{ padding: dlPadding(chkVal('recg-mostrar-valores'), fM, dlFlat(datasets)) },
       plugins:{
-        legend:{ display: selecionadas.length>1, position:'top', labels:{ color:tc, font:{size:11} } },
+        datalabels: dlBarras(chkVal('recg-mostrar-valores'), tc, fM, dlFlat(datasets)),
+        legend:{ display: selecionadas.length>1, position: chkVal('recg-mostrar-valores') ? 'bottom' : 'top', labels:{ color:tc, font:{size:11} } },
         tooltip:{ callbacks:{ label:function(ctx){ return ' '+ctx.dataset.label+': '+fM(ctx.raw); } } }
       },
       scales:{
         x:{ ticks:{ color:tc, font:{size:10} }, grid:{ color:gc } },
         y:{ ticks:{ color:tc, font:{size:10}, callback:function(v){ return fM(v); } }, grid:{ color:gc } }
       }
-    }
+    },
+    plugins: dlPlugins()
   });
   document.getElementById('recg-legenda').innerHTML='';
   renderBadgeTotalPeriodo('recg-badge-total', somaTudo, chavesOrdenadas.length);
+}
+
+/* ═══════════════════════════════════════════════════════════
+   MODAL "TOTAL DE FACE LIQUIDADA" — gráfico combinado mês a mês:
+   colunas = total de face liquidada; linha (eixo da direita) = receitas
+   liquidadas ÷ total de face, em %. Mesma regra de filtro do gráfico de
+   Faturamento: respeita a empresa escolhida na tela, mas ignora mês/ano
+   (pra dar pra comparar o padrão ao longo do tempo).
+   Receitas liquidadas do mês = soma das mesmas 9 categorias do card
+   (RECG_CAMPO_ROW), então o % bate com o que aparece no card.
+═══════════════════════════════════════════════════════════ */
+var FACEG_CHART_FACE = null, FACEG_CHART_PCT = null;
+function openFaceGrafico(){
+  document.getElementById('faceg-overlay').style.display='block';
+  resetarPosicaoJanela('faceg-box');
+  facegRender();
+}
+function closeFaceGrafico(){ document.getElementById('faceg-overlay').style.display='none'; }
+
+function facegDestruir(){
+  if(FACEG_CHART_FACE){ FACEG_CHART_FACE.destroy(); FACEG_CHART_FACE=null; }
+  if(FACEG_CHART_PCT){ FACEG_CHART_PCT.destroy(); FACEG_CHART_PCT=null; }
+}
+
+function facegRender(){
+  var empresasAtivas = Object.keys(sE);
+  var base = empresasAtivas.length ? mxrData.filter(function(r){ return empresasAtivas.indexOf(r.empresa)>=0; }) : mxrData;
+
+  var porMes = {}; // "AAAA-MM" -> {face, receitas}
+  base.forEach(function(r){
+    var idxMes = MESES_PT.indexOf(String(r.mes||'').toLowerCase());
+    if(idxMes<0 || !r.ano) return;
+    var chave = r.ano+'-'+String(idxMes+1).padStart(2,'0');
+    if(!porMes[chave]) porMes[chave]={face:0, receitas:0};
+    porMes[chave].face += n(r.total_face_liquidada);
+    Object.keys(RECG_CAMPO_ROW).forEach(function(k){ porMes[chave].receitas += n(r[RECG_CAMPO_ROW[k]]); });
+  });
+
+  // Só entram meses que têm face lançada (sem face não existe percentual).
+  var chaves = Object.keys(porMes).filter(function(k){ return porMes[k].face>0; }).sort();
+
+  var badgesEl = document.getElementById('faceg-badges');
+  var graficosEl = document.getElementById('faceg-graficos');
+  if(!chaves.length || typeof Chart==='undefined'){
+    document.getElementById('faceg-vazio').style.display='block';
+    graficosEl.style.display='none';
+    badgesEl.style.display='none';
+    facegDestruir();
+    return;
+  }
+  document.getElementById('faceg-vazio').style.display='none';
+  graficosEl.style.display='block';
+
+  var labels = chaves.map(function(k){ var p=k.split('-'); return MABR[parseInt(p[1],10)-1]+'/'+p[0].substring(2); });
+  var faces  = chaves.map(function(k){ return porMes[k].face; });
+  var pcts   = chaves.map(function(k){ return porMes[k].receitas/porMes[k].face*100; });
+
+  var somaFace = faces.reduce(function(s,v){ return s+v; },0);
+  var somaRec  = chaves.reduce(function(s,k){ return s+porMes[k].receitas; },0);
+
+  var corFace = '#1d7a5c', corPct = '#c8952e';
+  var tc = dark?'#8fa088':'#5b6b5c';
+  var gc = dark?'rgba(255,255,255,.07)':'rgba(0,0,0,.06)';
+
+  function criarGrafico(canvasId, rotulo, dados, cor, fmtTick, fmtTip){
+    return new Chart(document.getElementById(canvasId), {
+      type:'bar',
+      data:{ labels:labels, datasets:[{ label:rotulo, data:dados, backgroundColor:cor, borderRadius:4 }] },
+      options:{
+        responsive:true, maintainAspectRatio:false,
+        layout:{ padding: dlPadding(chkVal('faceg-mostrar-valores'), fmtTip, dados) },
+        plugins:{
+          datalabels: dlBarras(chkVal('faceg-mostrar-valores'), tc, fmtTip, dados),
+          legend:{ display:false },
+          tooltip:{ callbacks:{ label:function(ctx){ return ' '+rotulo+': '+fmtTip(ctx.raw); } } }
+        },
+        scales:{
+          x:{ ticks:{ color:tc, font:{size:10} }, grid:{ color:gc } },
+          y:{ beginAtZero:true, afterFit:function(s){ s.width=92; }, ticks:{ color:tc, font:{size:10}, callback:function(v){ return fmtTick(v); } }, grid:{ color:gc } }
+        }
+      },
+      plugins: dlPlugins()
+    });
+  }
+  facegDestruir();
+  FACEG_CHART_FACE = criarGrafico('faceg-canvas-face', 'Total de Face liquidada', faces, corFace, fM, fM);
+  FACEG_CHART_PCT  = criarGrafico('faceg-canvas-pct',  'Receitas ÷ Face', pcts, corPct, fPct, fPct);
+
+  var pill = 'display:inline-flex;align-items:center;gap:8px;font-size:13px;font-weight:700;color:var(--t1);background:var(--bg);border:1px solid var(--bd);padding:8px 18px;border-radius:20px';
+  badgesEl.style.display='flex';
+  badgesEl.innerHTML =
+    '<span style="'+pill+'">Face liquidada ('+chaves.length+(chaves.length===1?' mês':' meses')+'): <span style="font-family:var(--num);color:var(--br)">'+fM(somaFace)+'</span></span>'+
+    '<span style="'+pill+'">Receitas ÷ Face no período: <span style="font-family:var(--num);color:var(--br)">'+fPct(somaRec/somaFace*100)+'</span></span>';
 }
 
 var INVP_DATA = null; // cache: null = ainda não carregado
@@ -2373,7 +2596,9 @@ function csgRenderGrafico(){
     data:{labels:labels, datasets:datasets},
     options:{
       responsive:true, maintainAspectRatio:false,
+      layout:{ padding: dlPadding(chkVal('csg-mostrar-valores'), fM, dlFlat(datasets)) },
       plugins:{
+        datalabels: dlBarras(chkVal('csg-mostrar-valores'), tc, fM, dlFlat(datasets)),
         legend:{display:false},
         tooltip:{callbacks:{label:function(c){return ' '+c.dataset.label+': '+(c.raw===null?'sem lançamento no mês anterior':fM(c.raw));}}}
       },
@@ -2381,7 +2606,8 @@ function csgRenderGrafico(){
         x:{ticks:{color:tc,font:{size:11}},grid:{display:false}},
         y:{ticks:{color:tc,font:{size:10},callback:function(v){return fM(v);}},grid:{color:gc}}
       }
-    }
+    },
+    plugins: dlPlugins()
   });
 
   document.getElementById('csg-legenda').innerHTML =
@@ -2588,6 +2814,7 @@ var CAMPOS_FORM = [
   {tipo:'unico', chave:'receita_recuperacao_tarifas', label:'Receita — Recuperação de Tarifas', secao:'Receitas Liquidadas', formato:'money'},
   {tipo:'unico', chave:'outras_receitas', label:'Outras Receitas (financeiras/rendimentos bancários)', secao:'Receitas Liquidadas', formato:'money'},
   {tipo:'unico', chave:'descontos_de_receitas', label:'Descontos de Receitas (negativo)', secao:'Receitas Liquidadas', formato:'money'},
+  {tipo:'unico', chave:'total_face_liquidada', label:'Total de Face Liquidada', secao:'Receitas Liquidadas', formato:'money'},
   {tipo:'unico', chave:'resultado_meta', label:'Resultado do mês — Meta', secao:'Faturamento', formato:'money'},
 
   // TAXA
