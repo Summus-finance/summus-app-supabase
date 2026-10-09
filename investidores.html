@@ -183,7 +183,7 @@ th.num,td.num{font-family:var(--num);font-variant-numeric:tabular-nums}
   <!-- TABELA -->
   <div class="tbl-wrap">
     <div style="max-height:420px;overflow-y:auto;overflow-x:auto">
-      <table style="width:100%;border-collapse:collapse;font-size:13px;min-width:560px">
+      <table style="width:100%;border-collapse:collapse;font-size:13px;min-width:620px">
         <thead style="position:sticky;top:0;background:linear-gradient(155deg,var(--br) 0%,var(--br-ink) 100%);color:#fff;z-index:1">
           <tr>
             <th onclick="invOrdenar('tipo')" style="text-align:left;padding:9px 12px;font-weight:600;font-family:var(--disp);cursor:pointer;user-select:none;white-space:nowrap">TIPO <span id="inv-sort-tipo"></span></th>
@@ -192,6 +192,7 @@ th.num,td.num{font-family:var(--num);font-variant-numeric:tabular-nums}
             <th class="num" onclick="invOrdenar('valor')" style="text-align:right;padding:9px 12px;font-weight:600;font-family:var(--disp);cursor:pointer;user-select:none;white-space:nowrap">VALOR <span id="inv-sort-valor"></span></th>
             <th class="num" onclick="invOrdenar('taxa')" style="text-align:right;padding:9px 12px;font-weight:600;font-family:var(--disp);cursor:pointer;user-select:none;white-space:nowrap">TAXA <span id="inv-sort-taxa"></span></th>
             <th style="text-align:left;padding:9px 12px;font-weight:600;font-family:var(--disp);white-space:nowrap">EMPRESA</th>
+            <th id="inv-th-acoes" style="display:none;text-align:center;padding:9px 12px;font-weight:600;font-family:var(--disp);white-space:nowrap">AÇÕES</th>
           </tr>
         </thead>
         <tbody id="inv-tbody"></tbody>
@@ -209,8 +210,8 @@ th.num,td.num{font-family:var(--num);font-variant-numeric:tabular-nums}
   <div class="mo-box">
     <div class="mo-head">
       <div>
-        <h2>Lançar aporte/devolução</h2>
-        <p>Preencha os dados do investidor e clique em Salvar.</p>
+        <h2 id="li-titulo">Lançar aporte/devolução</h2>
+        <p id="li-sub">Preencha os dados do investidor e clique em Salvar.</p>
       </div>
       <button class="mo-close" onclick="fecharModalLancarInvestidor()">&times;</button>
     </div>
@@ -681,7 +682,7 @@ function invRenderTabela(){
   document.getElementById('inv-total').textContent=invFmtR(invFilt.reduce(function(s,r){return s+invValorLiquido(r);},0));
 
   if(!invFilt.length){
-    tbody.innerHTML='<tr><td colspan="6" style="padding:16px;text-align:center;color:var(--t3)">Nenhum registro para os filtros selecionados</td></tr>';
+    tbody.innerHTML='<tr><td colspan="7" style="padding:16px;text-align:center;color:var(--t3)">Nenhum registro para os filtros selecionados</td></tr>';
     return;
   }
 
@@ -699,6 +700,8 @@ function invRenderTabela(){
     return 0;
   });
 
+  var podeEd=!!(perfilAtual&&perfilAtual.pode_atualizar);
+  var thA=document.getElementById('inv-th-acoes'); if(thA) thA.style.display=podeEd?'':'none';
   tbody.innerHTML=ord.map(function(r,i){
     var bg=i%2===0?'var(--cd)':'var(--bg)';
     try{
@@ -713,10 +716,14 @@ function invRenderTabela(){
         '<td class="num" style="padding:8px 12px;border-bottom:1px solid var(--bd);text-align:right;font-weight:600;white-space:nowrap">'+invEsc(invFmtR(r.valor))+'</td>'+
         '<td class="num" style="padding:8px 12px;border-bottom:1px solid var(--bd);text-align:right;white-space:nowrap">'+(invN(r.taxa)?invEsc(invFmtPct(r.taxa)):'—')+'</td>'+
         '<td style="padding:8px 12px;border-bottom:1px solid var(--bd);color:var(--t2)">'+invEsc(r.empresa||'—')+'</td>'+
+        (podeEd?'<td style="padding:8px 12px;border-bottom:1px solid var(--bd);text-align:center;white-space:nowrap">'+
+          (r.id!=null?'<button type="button" title="Editar" onclick="editarInvestidor(decodeURIComponent(\''+encodeURIComponent(String(r.id))+'\'))" style="border:1px solid var(--bd);background:var(--cd);border-radius:6px;padding:3px 8px;cursor:pointer;font-size:13px;margin-right:4px">✎</button>'+
+          '<button type="button" title="Excluir" onclick="excluirInvestidor(decodeURIComponent(\''+encodeURIComponent(String(r.id))+'\'))" style="border:1px solid #e3b3ac;background:#fbe9e6;color:#93372f;border-radius:6px;padding:3px 8px;cursor:pointer;font-size:13px">🗑</button>':'—')+
+        '</td>':'')+
       '</tr>';
     }catch(errRow){
       console.error('Erro ao renderizar linha:', errRow, r);
-      return '<tr style="background:'+bg+'"><td colspan="6" style="padding:8px 12px;border-bottom:1px solid var(--bd);color:#93372f">Erro ao exibir este registro (verifique o console)</td></tr>';
+      return '<tr style="background:'+bg+'"><td colspan="7" style="padding:8px 12px;border-bottom:1px solid var(--bd);color:#93372f">Erro ao exibir este registro (verifique o console)</td></tr>';
     }
   }).join('');
 }
@@ -740,6 +747,8 @@ function popularEmpresasLancamento(){
 function abrirModalLancarInvestidor(){
   var s=gSess();
   if(!s||!s.podeAtualizar){ alert('Você não tem permissão para lançar valores.'); return; }
+  INV_EDIT_ID=null;
+  invModalModo(false);
   popularEmpresasLancamento();
   document.getElementById('li-tipo').value='aporte';
   document.getElementById('li-nome').value='';
@@ -748,6 +757,52 @@ function abrirModalLancarInvestidor(){
   document.getElementById('li-taxa').value='';
   document.getElementById('li-msg').style.display='none';
   document.getElementById('mo-overlay').style.display='flex';
+}
+var INV_EDIT_ID=null;
+function invModalModo(edit){
+  document.getElementById('li-titulo').textContent=edit?'Editar aporte/devolução':'Lançar aporte/devolução';
+  document.getElementById('li-sub').textContent=edit?'Altere os dados e clique em Salvar alterações.':'Preencha os dados do investidor e clique em Salvar.';
+  document.getElementById('li-salvar').textContent=edit?'Salvar alterações':'Salvar';
+}
+function invAcharPorId(id){
+  for(var i=0;i<invData.length;i++){ if(String(invData[i].id)===String(id)) return invData[i]; }
+  return null;
+}
+function editarInvestidor(id){
+  var s=gSess();
+  if(!s||!s.podeAtualizar){ alert('Você não tem permissão para editar valores.'); return; }
+  var r=invAcharPorId(id);
+  if(!r){ alert('Registro não encontrado. Recarregue a página.'); return; }
+  INV_EDIT_ID=r.id;
+  invModalModo(true);
+  popularEmpresasLancamento();
+  var selE=document.getElementById('li-empresa');
+  if(r.empresa && !Array.prototype.some.call(selE.options,function(o){return o.value===r.empresa;})){
+    var op=document.createElement('option'); op.value=r.empresa; op.textContent=r.empresa; selE.appendChild(op);
+  }
+  selE.value=r.empresa||selE.value;
+  var tRaw=String(r.tipo||'').trim().toLowerCase();
+  document.getElementById('li-tipo').value = tRaw==='capital empresa' ? 'capital empresa' : invTipoDe(r);
+  document.getElementById('li-nome').value=r.nome_investidor||'';
+  var m=String(r.data_aporte||'').match(/^(\d{4}-\d{2}-\d{2})/);
+  document.getElementById('li-data').value=m?m[1]:'';
+  document.getElementById('li-valor').value=(r.valor==null?'':r.valor);
+  document.getElementById('li-taxa').value=(r.taxa==null||r.taxa===''?'':r.taxa);
+  document.getElementById('li-msg').style.display='none';
+  document.getElementById('mo-overlay').style.display='flex';
+}
+function excluirInvestidor(id){
+  var s=gSess();
+  if(!s||!s.podeAtualizar){ alert('Você não tem permissão para excluir valores.'); return; }
+  var r=invAcharPorId(id);
+  if(!r){ alert('Registro não encontrado. Recarregue a página.'); return; }
+  var desc=(r.nome_investidor||'—')+' — '+invFmtDate(r.data_aporte)+' — '+invFmtR(r.valor);
+  if(!confirm('Excluir este lançamento?\n\n'+desc+'\n\nEsta ação não pode ser desfeita.')) return;
+  sb.from('investidor').delete().eq('id', r.id).select('id').then(function(res){
+    if(res.error){ alert('Erro ao excluir: '+res.error.message); return; }
+    if(!res.data||!res.data.length){ alert('Não foi possível excluir: o registro não foi removido (verifique as permissões no banco).'); return; }
+    loadInvestidores();
+  });
 }
 function fecharModalLancarInvestidor(){ document.getElementById('mo-overlay').style.display='none'; }
 function salvarInvestidor(){
@@ -777,10 +832,16 @@ function salvarInvestidor(){
   };
 
   var btn=document.getElementById('li-salvar');
+  var editando=(INV_EDIT_ID!==null && INV_EDIT_ID!==undefined);
+  var rotulo=editando?'Salvar alterações':'Salvar';
   btn.disabled=true; btn.textContent='Salvando...';
-  sb.from('investidor').insert(payload).then(function(res){
-    btn.disabled=false; btn.textContent='Salvar';
+  var req = editando
+    ? sb.from('investidor').update(payload).eq('id', INV_EDIT_ID).select('id')
+    : sb.from('investidor').insert(payload);
+  req.then(function(res){
+    btn.disabled=false; btn.textContent=rotulo;
     if(res.error){ msg.textContent='Erro: '+res.error.message; msg.className='mo-msg err'; msg.style.display='block'; return; }
+    if(editando && (!res.data||!res.data.length)){ msg.textContent='Não foi possível salvar: nenhum registro foi alterado (verifique as permissões no banco).'; msg.className='mo-msg err'; msg.style.display='block'; return; }
     msg.textContent='Salvo com sucesso!'; msg.className='mo-msg ok'; msg.style.display='block';
     loadInvestidores();
     setTimeout(fecharModalLancarInvestidor, 900);
